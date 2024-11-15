@@ -1,0 +1,42 @@
+from kernel_advtrain import kernel_adversarial_training
+import numpy as np
+from sklearn.kernel_ridge import KernelRidge
+from sklearn.model_selection import GridSearchCV
+
+rng = np.random.RandomState(42)
+
+X = 5 * rng.rand(30, 1)
+y = np.sin(X).ravel()
+
+# Add noise to targets
+y[::5] += 2 * (0.5 - rng.rand(X.shape[0] // 5))
+
+X_plot = np.linspace(0, 5, 100000)[:, None]
+
+
+train_size = 100
+
+kr = GridSearchCV(
+    KernelRidge(kernel="rbf", gamma=0.1),
+    param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3], "gamma": np.logspace(-2, 2, 5)},
+)
+
+
+kr.fit(X[:train_size], y[:train_size])
+y_kr = kr.predict(X_plot)
+
+akr = kernel_adversarial_training(X[:train_size], y[:train_size], adv_radius=1e-2, verbose=True, kernel="rbf", gamma=0.2)
+y_akr = akr.predict(X_plot)
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    plt.scatter(X[:100], y[:100], c="k", label="data", zorder=1, edgecolors=(0, 0, 0))
+
+    plt.plot(X_plot, y_kr, c="g", label="Kernel Ridge Regression with CV")
+
+    plt.plot(X_plot, y_akr, c="b",  label="Adversarial Kernel regression")
+    plt.xlabel("data")
+    plt.ylabel("target")
+    _ = plt.legend()
+    plt.show()
