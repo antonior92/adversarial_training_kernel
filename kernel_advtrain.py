@@ -71,6 +71,15 @@ def kernel_adversarial_training(X, y, adv_radius=0.1, verbose=True, utol=1e-12, 
         # ------- Termination criterion -------
         if update_size < utol:
             break
+
+    # modifications so one can safely use krr.predict()
+    def my_get_kernel(Z, W):
+        return pairwise_kernels(Z, W, metric=kernel, **kernel_params)
+
+    krr._get_kernel = my_get_kernel
+    krr.X_fit_ = X
+    krr.n_features_in_= X.shape[1]
+
     return krr
 
 
@@ -133,4 +142,13 @@ def mkl_adversarial_training(X, y, adv_radius=0.1, verbose=True, utol=1e-12, max
         # ------- Termination criterion -------
         if update_size < utol:
             break
+
+    def my_get_kernel(X, Y):
+        K = sum(wi * pairwise_kernels(X, Y, metric=kernel_i, **kparams_i) for wi, kernel_i, kparams_i in zip(w_params, kernel, kernel_params))
+        return K
+
+    krr._get_kernel = my_get_kernel
+    krr.X_fit_ = X
+    krr.n_features_in_= X.shape[1]
+
     return krr

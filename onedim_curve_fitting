@@ -1,4 +1,4 @@
-from kernel_advtrain import kernel_adversarial_training
+from kernel_advtrain import kernel_adversarial_training, mkl_adversarial_training
 import numpy as np
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
@@ -25,8 +25,12 @@ kr = GridSearchCV(
 kr.fit(X[:train_size], y[:train_size])
 y_kr = kr.predict(X_plot)
 
-akr = kernel_adversarial_training(X[:train_size], y[:train_size], adv_radius=1e-2, verbose=True, kernel="rbf", gamma=0.2)
+akr = kernel_adversarial_training(X[:train_size], y[:train_size], adv_radius=1e-2, verbose=True, kernel="rbf", kernel_params={'gamma': 0.2})
 y_akr = akr.predict(X_plot)
+
+amkl = mkl_adversarial_training(X[:train_size], y[:train_size], adv_radius=1e-2, verbose=True,
+                                kernel=["rbf", "chi2"])
+y_amkl = amkl.predict(X_plot)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -36,6 +40,9 @@ if __name__ == "__main__":
     plt.plot(X_plot, y_kr, c="g", label="Kernel Ridge Regression with CV")
 
     plt.plot(X_plot, y_akr, c="b",  label="Adversarial Kernel regression")
+
+    plt.plot(X_plot, y_amkl, c="r",  label="Adversarial MKL")
+
     plt.xlabel("data")
     plt.ylabel("target")
     _ = plt.legend()
