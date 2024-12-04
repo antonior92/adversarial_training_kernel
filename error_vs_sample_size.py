@@ -3,10 +3,11 @@ import numpy as np
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
 import pandas as pd
+import matplotlib.pyplot as plt
+from onedim_curve_fitting import get_curve, get_kernel
 
 def get_quantiles(xaxis, r, quantileslower=0.25, quantilesupper=0.75):
     new_xaxis, inverse, counts = np.unique(xaxis, return_inverse=True, return_counts=True)
-
     r_values = np.zeros([len(new_xaxis), max(counts)])
     secondindex = np.zeros(len(new_xaxis), dtype=int)
     for n in range(len(xaxis)):
@@ -21,46 +22,49 @@ def get_quantiles(xaxis, r, quantileslower=0.25, quantilesupper=0.75):
 
 
 rng = np.random.RandomState(42)
+df = pd.DataFrame(columns=['curve', 'rep', 'train_size', 'mse'])
 
-test_size = 1000
 
-df = pd.DataFrame(columns=['rep', 'train_size', 'mse'])
+if __name__ == '__main__':
+    import argparse
 
-for train_size in np.logspace(1, 3, num=10):
-    for rep in np.arange(10):
-        train_size = int(train_size)
-        # Generate input
-        X = 5 * rng.rand(train_size + test_size, 1)
-        y = np.sin(X).ravel() + 0.5 * rng.randn(X.shape[0])
+    parser = argparse.ArgumentParser(description="One-dimensional curve fitting")
+    parser.add_argument('--kernel', type=str, default='mattern5/2', choices=['rbf', 'mattern1/2','mattern3/2', 'mattern5/2'], help='Kernel type')
+    args = parser.parse_args()
 
-        X_train = X[:train_size]
-        X_test = X[train_size:]
-        y_train = y[:train_size]
-        y_test = y[train_size:]
 
-        akr = kernel_adversarial_training(X[:train_size], y[:train_size], adv_radius=1e-2, verbose=False, kernel="rbf", gamma=0.1)
-        y_pred = akr.predict(X_test)
+    kernel, kernel_params = get_kernel(args.kernel, gamma=12)
 
-        kr =  KernelRidge(kernel="rbf", gamma=0.1).fit(X_train, y_train)
-        y_kr = kr.predict(X_test)
+    for c in [2, 3]:
+        for train_size in np.logspace(1, 3, num=10):
+            for rep in np.arange(5):
+                train_size = int(train_size)
+                # Generate input
+                X, y, X_test, y_test = get_curve(rng, train_size, curve=c)
 
-        y_true = np.sin(X_test).ravel()
+                akr = kernel_adversarial_training(X, y, adv_radius=None, verbose=False, kernel=kernel,
+                                                  kernel_params=kernel_params)
+                y_pred = akr.predict(X_test)
 
-        mse = np.mean((y_true - y_pred)** 2)
-        mse_kr = np.mean((y_kr - y_pred)** 2)
+                mse = np.mean((y_pred - y_test) ** 2)
 
-        df = df.append({'rep': rep, 'train_size': train_size, 'mse': mse, 'mse_kr':  mse_kr}, ignore_index=True)
-print(df)
+                df = df.append({'curve': c, 'rep': rep, 'train_size': train_size, 'mse': mse}, ignore_index=True)
+        print(df)
 
-import matplotlib.pyplot as plt
+    df_curve1 = df[df['curve'] == 2]
+    x, y, lerr, uerr = get_quantiles(df_curve1['train_size'], np.array(df_curve1['mse']))
+    plt.plot(x, y, color='b', label='smooth')
+    plt.fill_between(x, y - lerr, y + uerr, color='b', alpha=0.2)
 
-x, y, lerr, uerr = get_quantiles(df['train_size'], df['mse'])
-plt.errorbar(x, y, yerr=[lerr, uerr], color='b')
+    df_curve2 = df[df['curve'] == 3]
+    x, y, lerr, uerr = get_quantiles(df_curve2['train_size'], np.array(df_curve2['mse']))
+    plt.plot(x, y, color='r', label='non-smooth')
+    plt.fill_between(x, y - lerr, y + uerr, color='r', alpha=0.2)
 
-#x, y, lerr, uerr = get_quantiles(df['train_size'], df['mse_kr'])
-#plt.errorbar(x, y, yerr=[lerr, uerr], color='r')
-plt.xscale('log')
-plt.yscale('log')
-plt.ylim([1e-3, 1e0])
-plt.xlim([1e0, 1e3])
-plt.show()
+    plt.title('Kernel: ' + args.kernel)
+    plt.legend()
+    plt.xlabel('Training size')
+    plt.ylabel('MSE')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.show()

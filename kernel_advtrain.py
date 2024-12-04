@@ -24,7 +24,7 @@ def get_norm(krr, K, eps=1e-15):
 def get_update_size(krr, krr_old):
    return np.linalg.norm(krr.dual_coef_ - krr_old.dual_coef_, ord=2)
 
-def kernel_adversarial_training(X, y, adv_radius=0.1, verbose=True, utol=1e-12, max_iter=100,
+def kernel_adversarial_training(X, y, adv_radius=None, verbose=True, utol=1e-12, max_iter=100,
                                 kernel='linear', kernel_params=None):
     n_train, n_features = X.shape
     
@@ -35,10 +35,12 @@ def kernel_adversarial_training(X, y, adv_radius=0.1, verbose=True, utol=1e-12, 
     if kernel_params is None:
         kernel_params = {}
     K = pairwise_kernels(X, metric=kernel, **kernel_params)
+    if adv_radius is None:
+        adv_radius = 0.4* np.sqrt(np.trace(K)) / n_train
+        print('adv_radius='+str(adv_radius))
     for i in range(max_iter):
         # ------- 1. Solve reweighted ridge regression ------
         reg = regul_correction * adv_radius ** 2
-        print(reg)
         krr = KernelRidge(alpha=reg, kernel='precomputed')
         krr.fit(K, y, sample_weight=w_samples)
 
