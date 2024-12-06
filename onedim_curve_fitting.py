@@ -51,25 +51,50 @@ def sq_dist(a, b):
     C = ((a[:, None] - b[None, :]) ** 2)
     return C
 
+valid_kernels = ['rbf', 'matern1-2', 'matern3-2', 'matern5-2']
+
 def get_kernel(kernel, gamma = 12):
     if kernel == 'rbf':
         return "rbf", {'gamma': gamma}
-    elif kernel == 'mattern1/2':
+    elif kernel == 'matern1-2':
         def kernel(x, y, a = 2):
             return np.exp(-np.sqrt(sq_dist(x, y)) * gamma)
         return kernel, {}
-    elif kernel == 'mattern3/2':
+    elif kernel == 'matern3-2':
         def kernel(x, y ):
             temp = np.sqrt(sq_dist(x, y))
             return (1 + np.sqrt(3) * temp * gamma) * np.exp(-np.sqrt(3) *temp * gamma)
         return kernel, {}
-    elif kernel == 'mattern5/2':
+    elif kernel == 'matern5-2':
         def kernel(x, y):
             temp = np.sqrt(sq_dist(x, y))
             return (1 + np.sqrt(5) * temp * gamma + 5 * temp**2 * gamma ** 2 / 3) * np.exp(- np.sqrt(5) * temp * gamma)
         return kernel, {}
     else:
         raise ValueError("Invalid kernel")
+
+def get_estimate(X, y, kernel, method='akr', kernel_params=None):
+    if method == 'akr':
+        akr = kernel_adversarial_training(X, y, verbose=False, kernel=kernel,
+                                          kernel_params=kernel_params)
+        return akr
+    elif method == 'kr_cv':
+        print('grid search')
+        kr = GridSearchCV(
+            KernelRidge(kernel=kernel, **kernel_params),
+            param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3]},
+        ) # TODO: this is quite inefficient. We should use SVD to solve the problem
+        kr.fit(X, y)
+        return kr
+    elif method == 'amkl':
+        amkl = mkl_adversarial_training(X, y, adv_radius=1e-2, verbose=False,
+                                        kernel=kernel,
+                                        kernel_params=kernel_params)
+        return amkl
+
+
+
+
 
 if __name__ == "__main__":
     import argparse
@@ -80,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument('--n', type=int, default=100,  help='Number of data points')
     parser.add_argument('--train_size', type=int, default=100, help='Training size')
     parser.add_argument('--include_MKL', action='store_true', help='Include MKL in the fitting')
-    parser.add_argument('--kernel', type=str, default='rbf', choices=['rbf', 'mattern1/2','mattern3/2', 'mattern5/2'],help='Kernel type')
+    parser.add_argument('--kernel', type=str, default='rbf', choices=valid_kernels,help='Kernel type')
     args = parser.parse_args()
 
     rng = np.random.RandomState(42)
@@ -102,29 +127,16 @@ if __name__ == "__main__":
         param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3]},
     )
 
-    # Fit three models
-    kr.fit(X, y)
-    y_kr = kr.predict(X_plot)
-    gamma = kr.best_estimator_.gamma
-    print(gamma)
-
-    akr = kernel_adversarial_training(X, y, verbose=False, kernel=kernel,
-                                      kernel_params=kernel_params)
-    y_akr = akr.predict(X_plot)
-
-    if include_MKL:
-        amkl = mkl_adversarial_training(X, y, adv_radius=1e-2, verbose=False,
-                                        kernel=["rbf", "chi2"])
-        y_amkl = amkl.predict(X_plot)
 
     import matplotlib.pyplot as plt
 
     plt.scatter(X, y, c="k", label="data", zorder=1, edgecolors=(0, 0, 0))
 
+    for method in ['akr', 'kr_cv']:
+        estimator = get_estimate(X, y, kernel, method=method, kernel_params=kernel_params, lw = 2)
+        y_pred = estimator.predict(X_plot)
+        plt.plot(X_plot, y_pred, label=method)
     plt.plot(X_plot, y_plot, c='k', ls=':', label='True')
-    plt.plot(X_plot, y_kr, c="g", label="Kernel Ridge Regression with CV")
-
-    plt.plot(X_plot, y_akr, c="b",  label="Adversarial Kernel regression")
 
     if include_MKL:
         plt.plot(X_plot, y_amkl, c="r",  label="Adversarial MKL")
