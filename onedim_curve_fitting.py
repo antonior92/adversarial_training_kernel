@@ -51,17 +51,19 @@ def sq_dist(a, b):
     C = ((a[:, None] - b[None, :]) ** 2)
     return C
 
-valid_kernels = ['rbf', 'matern1-2', 'matern3-2', 'matern5-2']
+valid_kernels = ['rbf', 'linear', 'matern1-2', 'matern3-2', 'matern5-2']
 
 def get_kernel(kernel, gamma = 12):
     if kernel == 'rbf':
         return "rbf", {'gamma': gamma}
+    elif kernel == 'linear':
+        return 'linear', {}
     elif kernel == 'matern1-2':
         def kernel(x, y, a = 2):
             return np.exp(-np.sqrt(sq_dist(x, y)) * gamma)
         return kernel, {}
     elif kernel == 'matern3-2':
-        def kernel(x, y ):
+        def kernel(x, y):
             temp = np.sqrt(sq_dist(x, y))
             return (1 + np.sqrt(3) * temp * gamma) * np.exp(-np.sqrt(3) *temp * gamma)
         return kernel, {}
@@ -102,11 +104,14 @@ if __name__ == "__main__":
     # Write me an argument parser
     parser = argparse.ArgumentParser(description="One-dimensional curve fitting")
     parser.add_argument('--curve', default=2, type=int, choices=[1, 2, 3],  help='Curve type (1, 2, or 3)')
-    parser.add_argument('--n', type=int, default=100,  help='Number of data points')
+    parser.add_argument('--n', type=int, default=40,  help='Number of data points')
     parser.add_argument('--train_size', type=int, default=100, help='Training size')
     parser.add_argument('--include_MKL', action='store_true', help='Include MKL in the fitting')
-    parser.add_argument('--kernel', type=str, default='rbf', choices=valid_kernels,help='Kernel type')
+    parser.add_argument('--kernel', type=str, default='matern5-2', choices=valid_kernels, help='Kernel type')
+    parser.add_argument('--save_figure', type=str, default='', help='Output figure')
+    parser.add_argument('--style', type=str, nargs='+',  default=[], help='Style file to be used')
     args = parser.parse_args()
+
 
     rng = np.random.RandomState(42)
     n = args.n
@@ -129,20 +134,28 @@ if __name__ == "__main__":
 
 
     import matplotlib.pyplot as plt
+    plt.style.use(args.style)
 
-    plt.scatter(X, y, c="k", label="data", zorder=1, edgecolors=(0, 0, 0))
+
+    plt.figure()
+    plt.scatter(X, y, c="k", label="Data", zorder=1, edgecolors=(0, 0, 0))
 
     for method in ['akr', 'kr_cv']:
-        estimator = get_estimate(X, y, kernel, method=method, kernel_params=kernel_params, lw = 2)
+        estimator = get_estimate(X, y, kernel, method=method, kernel_params=kernel_params)
         y_pred = estimator.predict(X_plot)
-        plt.plot(X_plot, y_pred, label=method)
+        label = 'Adv Kern' if method == 'akr' else 'Ridge CV'
+        plt.plot(X_plot, y_pred, label=label)
     plt.plot(X_plot, y_plot, c='k', ls=':', label='True')
 
     if include_MKL:
         plt.plot(X_plot, y_amkl, c="r",  label="Adversarial MKL")
 
-    plt.xlabel("data")
-    plt.ylabel("target")
-    _ = plt.legend()
-    plt.show()
+    plt.xlabel("$$x$$")
+    plt.ylabel("$$f(x)$$")
+    _ = plt.legend(loc='upper right')
+
+    if args.save_figure == '':
+        plt.show()
+    else:
+        plt.savefig(args.save_figure)
 

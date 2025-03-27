@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('--load', action='store_true', help='Load data from file')
     parser.add_argument('--dont_plot_figure', action='store_true', help='Plot figure')
     parser.add_argument('--save_figure', type=str, default='', help='Output figure')
+    parser.add_argument('--style', type=str, nargs='+',  default=[], help='Style file to be used')
     args = parser.parse_args()
     print(args)
 
@@ -65,20 +66,25 @@ if __name__ == '__main__':
     if not args.dont_plot_figure:
         print('Plotting figure')
         import matplotlib.pyplot as plt
+
+        plt.style.use(args.style)
         plt.figure()
         df_curve2 = df[df['curve'] == 3]
         x, y, lerr, uerr = get_quantiles(df_curve2['train_size'], np.array(df_curve2['mse']))
         yp, t1, t2 = fit_line(np.log(x), np.log(y))
-        plt.plot(x, y, color='r', label=f'non-smooth')
+        plt.plot(x, y, color='r', label=f'Non-smooth')
         plt.fill_between(x, y - lerr, y + uerr, color='r', alpha=0.2)
-        plt.plot(x, np.exp(yp), color='r', ls='--', lw=1, label=f'MSE $\propto$ n^({t1:.2f})')
+        plt.plot(x, np.exp(yp), color='r', ls='--', lw=1)
+        print(f'MSE  n^{t1:.2f}')
 
         df_curve1 = df[df['curve'] == 2]
         x, y, lerr, uerr = get_quantiles(df_curve1['train_size'], np.array(df_curve1['mse']))
         yp, t1, t2 = fit_line(np.log(x), np.log(y))
-        plt.plot(x, y, color='b', label=f'smooth')
+        plt.plot(x, y, color='b', label=f'Smooth')
         plt.fill_between(x, y - lerr, y + uerr, color='b', alpha=0.2)
-        plt.plot(x, np.exp(yp), color='b', ls='--', lw=1, label=f'MSE $\propto$ n^({t1:.2f})')
+        plt.plot(x, np.exp(yp), color='b', ls='--', lw=1)
+        print(f'MSE  n^{t1:.2f}')
+
 
         plt.title('Kernel: ' + args.kernel.capitalize())
         plt.legend()
