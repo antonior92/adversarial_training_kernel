@@ -55,7 +55,7 @@ model = KernelRidge(kernel='rbf', gamma=1 / 2, alpha=0.1)
 model.fit(X, y)
 y_kr = model.predict(X_eval)
 
-R = 10
+R = 10000
 randomfeatures = RBFRandomFourierFeatures(R)
 Z = randomfeatures.fit_transform(X)
 model = Ridge(alpha=0.1)
