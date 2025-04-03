@@ -3,23 +3,24 @@ from matplotlib import pyplot as plt
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import Ridge
 import numpy as np
+import torch.nn as nn
 
 
-class RBFRandomFourierFeatures:
+class RBFRandomFourierFeatures(nn.Module):
     '''
     compute R random fourier features for each sample in X
     '''
 
-    def __init__(self, R, p, sigmasq=1, track_grads=False, device=None):
+    def __init__(self, R, p, sigmasq=1, track_grads=False):
         '''
         R: number of random fourier features
         p: number of input features
         '''
+        super().__init__()
         self.R = R
         self.p = p
         self.sigmasq = sigmasq
         self.track_grads = track_grads
-        self.device = device
 
     def fit(self):
         self.W = torch.normal(
@@ -28,11 +29,9 @@ class RBFRandomFourierFeatures:
             size=(self.R, self.p),
         )  # R x p
         self.b = torch.rand(self.R) * 2 * torch.pi  # (R,)
-        self.W.requires_grad = self.track_grads
-        self.b.requires_grad = self.track_grads
-        if self.device is not None:
-            self.W = self.W.to(self.device)
-            self.b = self.b.to(self.device)
+
+        self.W = nn.Parameter(self.W, requires_grad=self.track_grads)
+        self.b = nn.Parameter(self.b, requires_grad=self.track_grads)
 
     def transform(self, X):
         Z = X @ self.W.T + self.b
@@ -49,11 +48,9 @@ class RBFRandomFourierFeatures:
             size=(self.R, self.p),
         )  # R x p
         self.b = torch.rand(self.R) * 2 * torch.pi  # (R,)
-        self.W.requires_grad = self.track_grads
-        self.b.requires_grad = self.track_grads
-        if self.device is not None:
-            self.W = self.W.to(self.device)
-            self.b = self.b.to(self.device)
+
+        self.W = nn.Parameter(self.W, requires_grad=self.track_grads)
+        self.b = nn.Parameter(self.b, requires_grad=self.track_grads)
 
         Z = X @ self.W.T + self.b  # n x R
         Z = torch.sqrt(torch.tensor(2 / self.R)) * torch.cos(Z)

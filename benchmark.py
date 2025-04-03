@@ -10,7 +10,7 @@ class LinearNet(nn.Module):
         super().__init__()
         self.randomfeatures = randomfeatures
         self.randomfeatures.fit()
-        self.linear = nn.Linear(R, 1, bias=False)
+        self.linear = nn.Linear(randomfeatures.R, 1, bias=False)
 
     def forward(self, x):
         x = self.randomfeatures.transform(x)
@@ -20,7 +20,7 @@ class LinearNet(nn.Module):
 
 # sample N points in the range [a, b); a <= b
 a, b = 0, 1
-N = 1000
+N = 50
 X = (a - b) * torch.rand(N, 1) + b
 
 # generate noisy observations of sin(4 * pi * x)
@@ -39,23 +39,28 @@ device = torch.device(
     else 'cuda' if torch.cuda.is_available() else 'cpu'
 )
 print(f"Using device: {device}")
-R = 1000
-randomfeatures = RBFRandomFourierFeatures(
-    R, X.shape[1], track_grads=False, device=device
-)
+R = 500
+p = X.shape[1]
+randomfeatures = RBFRandomFourierFeatures(R, p, sigmasq=0.05, track_grads=False)
+randomfeatures.to(device)
 
 model = LinearNet(randomfeatures)
 model.to(device)
+
+# count the number of trainable parameters
+for name, param in model.named_parameters():
+    print(
+        f'param name = {name}, param shape = {param.shape}, requires grad: {param.requires_grad}'
+    )
+trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"Number of trainable parameters: {trainable_params}")
+
 
 loss_fn = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 epochs = int(3e3)
 model.train()
-
-# count the number of trainable parameters
-trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"Number of trainable parameters: {trainable_params}")
 
 X = X.to(device)
 y = y.to(device)
@@ -71,20 +76,15 @@ for epoch in range(epochs):
     if (epoch + 1) % 100 == 0:
         print(f"Epoch [{epoch + 1}/{epochs}], Loss: {loss.item():.4f}")
 
-
+model.eval()
 plt.plot(X.cpu().numpy(), y.cpu().numpy(), 'o', label='Data')  # data
 plt.plot(X_eval, y_eval, label='sin(x)', color='red')  # truth
 
-# sort X in ascending order
-sorted_indices = torch.argsort(X, dim=0).squeeze()
-X_sorted = X[sorted_indices]
-
+X_eval = X_eval.to(device)
 plt.plot(
-    X_sorted.cpu().numpy(),
-    model(X_sorted).detach().cpu().numpy(),
+    X_eval.cpu().numpy(),
+    model(X_eval).detach().cpu().numpy(),
     label='Predictions',
     color='green',
 )  # predictions
 plt.show()
-
-print("finished")
