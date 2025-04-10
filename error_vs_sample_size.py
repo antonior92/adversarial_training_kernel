@@ -41,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('--dont_plot_figure', action='store_true', help='Plot figure')
     parser.add_argument('--save_figure', type=str, default='', help='Output figure')
     parser.add_argument('--style', type=str, nargs='+',  default=[], help='Style file to be used')
+    parser.add_argument('--save_summary', type=str, default='out/summary.csv', help='Output summary file')
     args = parser.parse_args()
     print(args)
 
@@ -75,9 +76,12 @@ if __name__ == '__main__':
         plt.figure()
 
 
+
         method = {0: 'Adv Kern', 1: 'Ridge CV'}
         label = {2:  'Smooth', 3:'Non-smooth'}
         colors = {(0, 2): 'b', (0, 3): 'r', (1, 2): 'g', (1, 3): 'y'}
+
+        sss = pd.DataFrame(columns=['method', 'kernel', 'curve', 'rate'])
         for curve in [2, 3]:
             for ii, df in enumerate(df_list):
                 df_curve2 = df[df['curve'] == curve]
@@ -86,17 +90,34 @@ if __name__ == '__main__':
                 plt.plot(x, y, color=colors[(ii, curve)], label=label[curve] )
                 plt.fill_between(x, y - lerr, y + uerr, color=colors[(ii, curve)], alpha=0.2)
                 plt.plot(x, np.exp(yp), color=colors[(ii, curve)], ls='--', lw=1)
-                print(f'MSE  n^{t1:.2f}')
+                print(f'Test MSE  n^{t1:.2f}')
+
+                # Save summary
+                s = pd.DataFrame({ 'method': args.estimate, 'kernel': [args.kernel], 'curve': [label[curve]], 'rate': [t1]})
+                sss = pd.concat([sss, s], ignore_index=True)
 
 
 
         plt.title('Kernel: ' + args.kernel.capitalize())
         plt.legend()
         plt.xlabel('Training size')
-        plt.ylabel('MSE')
+        plt.ylabel('Test MSE')
         plt.xscale('log')
         plt.yscale('log')
         if args.save_figure == '':
             plt.show()
         else:
             plt.savefig(args.save_figure)
+
+        if args.save_summary:
+            # check if the file exists and read it if it does
+            try:
+                print('file exists, saving concatenated data')
+                sss_ = pd.read_csv(args.save_summary)
+                # concatenate the new data with the existing data
+                sss = pd.concat([sss_, sss], ignore_index=True)
+            except FileNotFoundError:
+                pass
+            sss.to_csv(args.save_summary, index=False)
+        else:
+            print(sss)
