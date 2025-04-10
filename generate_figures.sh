@@ -1,6 +1,7 @@
-###########################
-# Fig 1 Generate 1d plots #
-###########################
+##################################
+# Fig 1 (left, middle) + Fig S.1 #
+#      Generate 1d plots         #
+##################################
 
 mkdir -p img/1d_plots
 for kernel in 'rbf' 'matern1-2'  'matern5-2';
@@ -12,9 +13,10 @@ do
 done
 
 
-##############################
-# Fig 2 error vs sample size #
-##############################
+####################################
+# Fig 1 (right) + Fig S.2 + Tab. 3 #
+#      Fig  error vs sample size   #
+####################################
 mkdir -p out
 mkdir -p out/error_vs_sample_size
 
@@ -45,7 +47,7 @@ python styles/print_mytable.py
 
 
 ##############################
-# Fig 3 error vs sample size #
+# Fig X error vs sample size #
 ##############################
 # now running on hyperion: seff
 for method in 'akr' 'kr_cv';
