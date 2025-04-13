@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.linear_model._ridge import _ridge_regression, Ridge
 from sklearn.metrics.pairwise import pairwise_kernels
 
-from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
 
 
 def eta_trick(values, eps=1e-12):
@@ -88,20 +88,26 @@ def kernel_adversarial_training(X, y, adv_radius=None, verbose=True, utol=1e-12,
     return krr
 
 
-class AdvKernelTrain(BaseEstimator, ClassifierMixin):
-    def __init__(self, kernel='rbf', adv_radius=None, kernel_params=None, verbose=False):
+class AdvKernelTrain(BaseEstimator, RegressorMixin):
+    def __init__(self, kernel='rbf', adv_radius=None, verbose=False, gamma = None, **kernel_params):
         self.kernel = kernel
         self.kernel_params = kernel_params
         self.verbose = verbose
         self.adv_radius = adv_radius
+        self.gamma = gamma
+        self.model_ = None
 
     def fit(self, X, y):
+        if self.gamma is None:
+            kernel_params = self.kernel_params
+        else:
+            kernel_params = {**self.kernel_params, 'gamma': self.gamma}
         self.model_ = kernel_adversarial_training(
             X, y,
             verbose=self.verbose,
             adv_radius=self.adv_radius,
             kernel=self.kernel,
-            kernel_params=self.kernel_params
+            kernel_params=kernel_params
         )
         return self
 
