@@ -3,6 +3,9 @@ import numpy as np
 from sklearn.linear_model._ridge import _ridge_regression, Ridge
 from sklearn.metrics.pairwise import pairwise_kernels
 
+from sklearn.base import BaseEstimator, ClassifierMixin
+
+
 def eta_trick(values, eps=1e-12):
     """Implement eta trick."""
     values = np.atleast_2d(values)
@@ -36,7 +39,7 @@ def kernel_adversarial_training(X, y, adv_radius=None, verbose=True, utol=1e-12,
         kernel_params = {}
     K = pairwise_kernels(X, metric=kernel, **kernel_params)
     if adv_radius is None:
-        adv_radius = np.sqrt(np.trace(K)) / n_train
+        adv_radius = 0.4 * np.sqrt(np.trace(K)) / n_train
         print('adv_radius='+str(adv_radius))
     for i in range(max_iter):
         # ------- 1. Solve reweighted ridge regression ------
@@ -83,6 +86,27 @@ def kernel_adversarial_training(X, y, adv_radius=None, verbose=True, utol=1e-12,
     krr.n_features_in_= X.shape[1]
 
     return krr
+
+
+class AdvKernelTrain(BaseEstimator, ClassifierMixin):
+    def __init__(self, kernel='rbf', adv_radius=None, kernel_params=None, verbose=False):
+        self.kernel = kernel
+        self.kernel_params = kernel_params
+        self.verbose = verbose
+        self.adv_radius = adv_radius
+
+    def fit(self, X, y):
+        self.model_ = kernel_adversarial_training(
+            X, y,
+            verbose=self.verbose,
+            adv_radius=self.adv_radius,
+            kernel=self.kernel,
+            kernel_params=self.kernel_params
+        )
+        return self
+
+    def predict(self, X):
+        return self.model_.predict(X)
 
 
 
