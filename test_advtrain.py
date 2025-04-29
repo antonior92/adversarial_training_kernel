@@ -1,7 +1,8 @@
 # Import
 import numpy as np
 import pytest
-from kernel_advtrain import kernel_adversarial_training, mkl_adversarial_training, AdvKernelTrain
+from kernel_advtrain import kernel_adversarial_training, mkl_adversarial_training, AdvKernelTrain, \
+    AdvMultipleKernelTrain
 import cvxpy as cp
 import numpy as np
 
@@ -87,6 +88,22 @@ def test_mkl_advtrain():
     coefs_lin_advtrain = AdversarialTrainingCVX(X, y, p=2)(adv_radius=0.1) # Resul from linear adversarial training
     assert np.allclose(2* coefs, coefs_lin_advtrain, rtol=1e-3)
 
+
+def test_mkl_advtrain_wrapper():
+    params = np.array([1, 2, 3, 4, 5])
+    n_train, n_params = 100, len(params)
+    rng = np.random.RandomState(0)
+    X = rng.randn(n_train, n_params)
+    y = X @ params + 0.1 * rng.randn(n_train)
+
+    model = AdvMultipleKernelTrain(adv_radius=0.1, kernel=['linear','linear'])
+    model.fit(X, y)
+
+    # Assuming model.model_ is the object returned by kernel_adversarial_training
+    coefs = X.T @ model.model_.dual_coef_
+    coefs_lin_advtrain = AdversarialTrainingCVX(X, y, p=2)(adv_radius=0.1)
+
+    assert np.allclose(2* coefs, coefs_lin_advtrain, rtol=1e-3)
 
 if __name__ == "__main__":
     pytest.main()

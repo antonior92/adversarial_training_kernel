@@ -131,9 +131,9 @@ def mkl_adversarial_training(X, y, adv_radius=None, verbose=True, utol=1e-12, ma
         kernel_params = n_kernels * [{}]
 
     if adv_radius is None:
-        adv_radius =  1 / np.sqrt(n_train)
+        adv_radius = 0.4 / np.sqrt(n_train)
         print('adv_radius='+str(adv_radius))
-    
+
     kernel_list = []
     for kernel_i, kparams_i in zip(kernel, kernel_params):
         kernel_list.append(pairwise_kernels(X, metric=kernel_i, **kparams_i))
@@ -188,3 +188,26 @@ def mkl_adversarial_training(X, y, adv_radius=None, verbose=True, utol=1e-12, ma
     krr.n_features_in_= X.shape[1]
 
     return krr
+
+
+# Define sklearn like wrapper
+class AdvMultipleKernelTrain(BaseEstimator, RegressorMixin):
+    def __init__(self, kernel=['linear',], adv_radius=None, verbose=False, kernel_params=None):
+        self.kernel = kernel
+        self.kernel_params = kernel_params
+        self.verbose = verbose
+        self.adv_radius = adv_radius
+        self.model_ = None
+
+    def fit(self, X, y):
+        self.model_ = mkl_adversarial_training(
+            X, y,
+            verbose=self.verbose,
+            adv_radius=self.adv_radius,
+            kernel=self.kernel,
+            kernel_params=self.kernel_params
+        )
+        return self
+
+    def predict(self, X):
+        return self.model_.predict(X)

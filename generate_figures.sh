@@ -45,6 +45,15 @@ done
 python styles/print_mytable.py
 
 
+##################################
+#             Fig X              #
+#      Compute performance        #
+##################################
+
+# Now running on hyperion: seff
+python get_performance.py --dont_plot_figure  # now running on hyperion
+python get_performance.py --load_data --csv_file "out/performace_regr.csv" --style styles/vr.mpl
+
 
 ##############################
 # Fig X error vs sample size #
