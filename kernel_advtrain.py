@@ -2,8 +2,11 @@ from sklearn.kernel_ridge import KernelRidge
 import numpy as np
 from sklearn.linear_model._ridge import _ridge_regression, Ridge
 from sklearn.metrics.pairwise import pairwise_kernels
-
 from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
+from pgd import PGD
+from randomfeatures import RBFRandomFourierFeatures
+import torch
+import torch.nn as nn
 
 
 def eta_trick(values, eps=1e-12):
@@ -211,3 +214,63 @@ class AdvMultipleKernelTrain(BaseEstimator, RegressorMixin):
 
     def predict(self, X):
         return self.model_.predict(X)
+    
+class LinearNet(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(LinearNet, self).__init__()
+        self.model = nn.Sequential(
+            nn.Linear(input_dim, output_dim, bias=False),
+        )
+
+    def forward(self, X):
+        if not isinstance(X, torch.Tensor):
+            X = torch.tensor(X, dtype=torch.float32)
+        return self.model(X).view(-1)
+    
+class LinearAdvFourierFeatures(BaseEstimator, RegressorMixin):
+    def __init__(self, R, adv_radius, nsteps=10, step_size=2 / 255, nepochs=100, lr=1e-3, verbose=False):
+        self.R = R
+        self.adv_radius = adv_radius
+        self.nsteps = nsteps
+        self.step_size = step_size
+        self.nepochs = nepochs
+        self.lr = lr
+        self.verbose = verbose
+        self.loss_fn = nn.MSELoss()
+        self.lin_net = LinearNet(input_dim=R, output_dim=1)
+        
+
+    def fit(self, X, y):
+        n_train, n_features = X.shape
+        
+        self.randomfeatures = RBFRandomFourierFeatures(self.R, n_features)
+        Z = self.randomfeatures.fit_transform(torch.tensor(X, dtype=torch.float32))
+        
+        self.attack = PGD(model=self.lin_net,
+                 loss_fn=self.loss_fn, 
+                 adv_radius=self.adv_radius,
+                 step_size=self.step_size, 
+                 nsteps=self.nsteps)
+    
+        self.laff_adversarial_training(Z, torch.tensor(y, dtype=torch.float32), verbose=self.verbose)
+        return self
+
+    
+    def laff_adversarial_training(self, X, y, verbose=False):
+        self.lin_net.train()
+        optimizer = torch.optim.Adam(self.lin_net.parameters(), lr=self.lr)
+        for epoch in range(self.nepochs):
+            optimizer.zero_grad()
+            # Reshape Z to (N, 1, 1, R) for the attack (vector input)
+            X_adv = self.attack(X.view(X.shape[0], 1, 1, -1), y)
+            y_adv = self.lin_net(X_adv)
+            loss = self.loss_fn(y_adv, y)
+            loss.backward()
+            optimizer.step()
+            if verbose and (epoch + 1) % 10 == 0:
+                print(f"Epoch [{epoch + 1}/{self.nepochs}] | Loss = {loss.item():.4f}")
+    
+    def predict(self, X):
+        Z = self.randomfeatures.transform(torch.tensor(X, dtype=torch.float32))
+        pred = self.lin_net(Z)
+        return pred.detach().numpy()
