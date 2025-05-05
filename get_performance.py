@@ -7,7 +7,7 @@ from datasets import *
 import time
 from sklearn.metrics import (r2_score,)
 from onedim_curve_fitting import get_kernel
-from kernel_advtrain import AdvKernelTrain, AdvMultipleKernelTrain
+from kernel_advtrain import AdvKernelTrain, AdvMultipleKernelTrain, LinearAdvFourierFeatures
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
 
@@ -40,16 +40,19 @@ if __name__ == '__main__':
 
 
     adv_radius = float(args.adv_radius)
+    #adv_radius = 0.01
     if args.setting == 'regr':
-        all_methods = ['akr', 'kr_cv', 'amkl']
+        all_methods = ['akr', 'kr_cv', 'amkl', 'laff']
+        all_methods = ['laff']
         datasets = [polution, us_crime, wine, diabetes, abalone]
         tp = 'regression'
         metrics_names = ['R2',]
         metrics_of_interest = [r2_score,]
         metric_show = 'R2'
-        ord = np.Inf
+        ord = np.inf
         ylabel = 'R-squared'
         methods_to_show = ['akr', 'kr_cv']
+        methods_to_show = ['laff']
         methods_name = ['Adv Kern', 'Kernel Ridge']
     else:
         raise ValueError('Setting not implemented')
@@ -79,6 +82,8 @@ if __name__ == '__main__':
                     est = GridSearchCV(est, param_grid={"alpha": np.logspace(1, -6, 21), "gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
                 elif method == 'amkl':
                     est = AdvMultipleKernelTrain(verbose=False, kernel=5 * ['rbf'], kernel_params=[{'gamma': 10}, {'gamma': 1e0}, {'gamma': 0.1}, {'gamma': 1e-2}, {'gamma': 1e-3}])
+                elif method == 'laff':
+                    est = LinearAdvFourierFeatures(R=1000, adv_radius=adv_radius,verbose=True)
                 estimator = est.fit(X_train, y_train)
                 y_pred = estimator.predict(X_test)
 
