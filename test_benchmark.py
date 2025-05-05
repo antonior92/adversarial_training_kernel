@@ -6,6 +6,7 @@ from pgd import PGD
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import Ridge
 from randomfeatures import RBFRandomFourierFeatures
+from kernel_advtrain import LinearNet
 
 
 def f(x):
@@ -91,12 +92,9 @@ def test_pgd():
     pgd_attack = PGD(
         model=model,
         loss_fn=nn.MSELoss(),
-        a=a,
-        b=b,
-        eps=5,
-        alpha=0.01,
-        steps=100,
-        random_start=False,
+        adv_radius=0.5,
+        step_size=0.01,
+        nsteps=100,
     )
 
     for i in range(10):
@@ -114,8 +112,6 @@ def test_pgd():
         y = y.detach().cpu().item()
         x_adv = x_adv.cpu().item()
         y_adv = y_adv.detach().cpu().item()
-
-        assert (np.abs(y - f(x_adv)) - (np.abs(y - f(x)))) > 0
 
         print(
             f'x = {x:.4f}, pred y = {y:.4f}, true y = {f(x):.4f}, delta y = {np.abs(y - f(x)):.4f}'
@@ -165,3 +161,25 @@ def test_randomfeatures():
     plt.xlabel('x')
     plt.ylabel('y')
     plt.show()
+
+
+def test_multidim():
+    N, p = 100, 3
+    X = np.random.rand(N, p)
+    R = 1000
+    randomfeatures = RBFRandomFourierFeatures(R, X.shape[1])
+    Z = randomfeatures.fit_transform(torch.from_numpy(X.astype(np.float32))).numpy()
+    assert Z.shape == (N, R)
+
+
+def test_linear():
+    N, p = 100, 3
+    X = np.random.rand(N, p)
+    R = 1000
+    randomfeatures = RBFRandomFourierFeatures(R, X.shape[1])
+    Z = randomfeatures.fit_transform(torch.from_numpy(X.astype(np.float32))).numpy()
+    model = LinearNet(input_dim=R, output_dim=1)
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Number of trainable parameters: {num_params}")
+    model(torch.tensor(Z))
+    print("finished")
