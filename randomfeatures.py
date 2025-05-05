@@ -30,6 +30,7 @@ class RBFRandomFourierFeatures(nn.Module):
         self.b = nn.Parameter(self.b, requires_grad=self.track_grads)
 
     def transform(self, X):
+        # N x p @ p x R + R x 1
         Z = X @ self.W.T + self.b
         Z = torch.sqrt(torch.tensor(2 / self.R)) * torch.cos(Z)
         return Z
@@ -48,6 +49,7 @@ class RBFRandomFourierFeatures(nn.Module):
         self.W = nn.Parameter(self.W, requires_grad=self.track_grads)
         self.b = nn.Parameter(self.b, requires_grad=self.track_grads)
 
+        # N x p @ p x R + R x 1
         Z = X @ self.W.T + self.b  # n x R
         Z = torch.sqrt(torch.tensor(2 / self.R)) * torch.cos(Z)
         return Z
