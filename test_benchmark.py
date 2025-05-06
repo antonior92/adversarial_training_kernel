@@ -103,11 +103,8 @@ def test_pgd():
         )
         # x = torch.tensor([10], dtype=torch.float32).to(device)
         y = model(x)
-        x_adv = pgd_attack(
-            x, f(x.detach().cpu()).to(device)
-        ).reshape(1)
+        x_adv = pgd_attack(x, f(x.detach().cpu()).to(device)).reshape(1)
         y_adv = model(x_adv)
-
         x = x.cpu().item()
         y = y.detach().cpu().item()
         x_adv = x_adv.cpu().item()
@@ -183,3 +180,12 @@ def test_linear():
     print(f"Number of trainable parameters: {num_params}")
     model(torch.tensor(Z))
     print("finished")
+
+
+@torch.no_grad()
+def test_proj_l1_ball():
+    v = torch.randn(8, 3, 32, 32)
+    eps = 0.05
+    p = PGD._proj_l1_ball(v, eps)
+    flat = p.view(p.size(0), -1)
+    assert torch.allclose(flat.abs().sum(dim=1), torch.full((8,), eps), atol=1e-6)

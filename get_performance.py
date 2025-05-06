@@ -83,7 +83,7 @@ if __name__ == '__main__':
                 elif method == 'amkl':
                     est = AdvMultipleKernelTrain(verbose=False, kernel=5 * ['rbf'], kernel_params=[{'gamma': 10}, {'gamma': 1e0}, {'gamma': 0.1}, {'gamma': 1e-2}, {'gamma': 1e-3}])
                 elif method == 'laff':
-                    est = LinearAdvFourierFeatures(R=1000, adv_radius=adv_radius,verbose=True)
+                    est = LinearAdvFourierFeatures(R=1000, adv_radius=adv_radius, verbose=True)
                 estimator = est.fit(X_train, y_train)
                 y_pred = estimator.predict(X_test)
 

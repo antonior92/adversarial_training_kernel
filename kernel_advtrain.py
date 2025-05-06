@@ -228,7 +228,7 @@ class LinearNet(nn.Module):
         return self.model(X).view(-1)
     
 class LinearAdvFourierFeatures(BaseEstimator, RegressorMixin):
-    def __init__(self, R, adv_radius, nsteps=10, step_size=2 / 255, nepochs=100, lr=1e-3, verbose=False):
+    def __init__(self, R, adv_radius, p=torch.inf, nsteps=10, step_size=2 / 255, nepochs=100, lr=1e-3, verbose=False):
         self.R = R
         self.adv_radius = adv_radius
         self.nsteps = nsteps
@@ -238,6 +238,7 @@ class LinearAdvFourierFeatures(BaseEstimator, RegressorMixin):
         self.verbose = verbose
         self.loss_fn = nn.MSELoss()
         self.lin_net = LinearNet(input_dim=R, output_dim=1)
+        self.p = p
         
 
     def fit(self, X, y):
@@ -247,10 +248,11 @@ class LinearAdvFourierFeatures(BaseEstimator, RegressorMixin):
         Z = self.randomfeatures.fit_transform(torch.tensor(X, dtype=torch.float32))
         
         self.attack = PGD(model=self.lin_net,
-                 loss_fn=self.loss_fn, 
-                 adv_radius=self.adv_radius,
-                 step_size=self.step_size, 
-                 nsteps=self.nsteps)
+                          loss_fn=self.loss_fn, 
+                          p=self.p,
+                          adv_radius=self.adv_radius,
+                          step_size=self.step_size, 
+                          nsteps=self.nsteps)
     
         self.laff_adversarial_training(Z, torch.tensor(y, dtype=torch.float32), verbose=self.verbose)
         return self
