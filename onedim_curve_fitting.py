@@ -1,5 +1,5 @@
 #%% Imports and definition
-from kernel_advtrain import kernel_adversarial_training, mkl_adversarial_training, AdvKernelTrain
+from kernel_advtrain import kernel_adversarial_training, mkl_adversarial_training, AdvKernelTrain, LinearAdvFourierFeatures
 import numpy as np
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
@@ -86,6 +86,8 @@ def get_estimate(X, y, kernel, method='akr', kernel_params=None):
     elif method == 'kr_cv':
         est = KernelRidge(kernel=kernel, **kernel_params)
         est = GridSearchCV(est, param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3]})
+    elif method == 'laff':
+        est = LinearAdvFourierFeatures(R=1000, adv_radius=0, verbose=True)
 
     est.fit(X, y)
     return est
