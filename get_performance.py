@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
 
     adv_radius = float(args.adv_radius)
-    #adv_radius = 0.01
+    adv_radius = 0.01
     if args.setting == 'regr':
         all_methods = ['akr', 'kr_cv', 'amkl', 'laff']
         all_methods = ['laff']

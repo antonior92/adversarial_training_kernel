@@ -104,7 +104,7 @@ def test_pgd():
         # x = torch.tensor([10], dtype=torch.float32).to(device)
         y = model(x)
         x_adv = pgd_attack(
-            x.reshape(1, 1, 1, 1), f(x.detach().cpu()).to(device)
+            x, f(x.detach().cpu()).to(device)
         ).reshape(1)
         y_adv = model(x_adv)
 

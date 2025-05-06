@@ -261,8 +261,7 @@ class LinearAdvFourierFeatures(BaseEstimator, RegressorMixin):
         optimizer = torch.optim.Adam(self.lin_net.parameters(), lr=self.lr)
         for epoch in range(self.nepochs):
             optimizer.zero_grad()
-            # Reshape Z to (N, 1, 1, R) for the attack (vector input)
-            X_adv = self.attack(X.view(X.shape[0], 1, 1, -1), y)
+            X_adv = self.attack(X, y)
             y_adv = self.lin_net(X_adv)
             loss = self.loss_fn(y_adv, y)
             loss.backward()

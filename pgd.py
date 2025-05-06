@@ -17,9 +17,9 @@ class PGD(nn.Module):
         - nsteps (int): number of steps
 
     shape:
-        - X: (N, C, H, W) where N = batch size, C = number of channels, H = height and W = width
+        - X: (N, P) where N is the number of samples and P is the number of features
         - y: (N,)
-        - output: (N, C, H, W)
+        - output: (N, P)
     '''
 
     def __init__(
@@ -53,8 +53,8 @@ class PGD(nn.Module):
             # project X_adv to the ball around X
             X_adv = torch.clamp(X_adv, X - self.adv_radius, X + self.adv_radius)
 
-        init_loss = self.loss_fn(self.model(X).view_as(y), y)
-        adv_loss = self.loss_fn(self.model(X_adv).view_as(y), y)
+        init_loss = self.loss_fn(self.model(X), y)
+        adv_loss = self.loss_fn(self.model(X_adv), y)
         assert (
             adv_loss >= init_loss
         ), f" adversarial loss ({adv_loss}) lower than initial loss ({init_loss})"
