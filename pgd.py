@@ -34,11 +34,16 @@ class PGD(nn.Module):
         assert p >= 1 or p == torch.inf, "p must be >= 1 or p == inf"
         self.q = 1 if p == torch.inf else (torch.inf if p == 1 else p / (p - 1))
 
-    def forward(self, X, y):
+    def forward(self, X, y, debug=False):
         X_adv = X.detach().clone().requires_grad_(True)
+        if debug:
+            advs, losses = [], []
 
         for _ in range(self.nsteps):
             loss = self.loss_fn(self.model(X_adv), y)
+            if debug:
+                losses.append(loss.item())
+                advs.append(X_adv.detach().clone())
 
             (grad,) = torch.autograd.grad(
                 loss, X_adv, retain_graph=False, create_graph=False
@@ -58,11 +63,18 @@ class PGD(nn.Module):
             # project X_adv onto the p-ball around X
             X_adv = self.project_(X, X_adv)
 
+        if debug:
+            advs.append(X_adv.detach().clone())
+            losses.append(self.loss_fn(self.model(X_adv), y).item())
+
         init_loss = self.loss_fn(self.model(X), y)
         adv_loss = self.loss_fn(self.model(X_adv), y)
         assert (
             adv_loss >= init_loss
         ), f" adversarial loss ({adv_loss}) lower than initial loss ({init_loss})"
+
+        if debug:
+            return advs, losses
 
         return X_adv
 
@@ -108,7 +120,7 @@ class PGD(nn.Module):
         assert (
             torch.max(p_norm) <= self.adv_radius + 1e-6
         ), f"p-norm = {p_norm.max()} > adv_radius = {self.adv_radius} (tolerance = 1e-6)"
-        
+
         return (X + delta).requires_grad_(True)
 
     @staticmethod
@@ -116,10 +128,21 @@ class PGD(nn.Module):
         '''figure 1 from Duchi et al. (2008)'''
         flat = v.view(v.size(0), -1)
         abs_v = flat.abs()
-        s = torch.sort(abs_v, dim=1, descending=True).values
+        l1_norm = abs_v.sum(dim=1, keepdim=True)
+
+        # 1) check if we are inside the l1-ball
+        inside_mask = l1_norm <= eps
+        if inside_mask.all():
+            return v  # nothing to do
+
+        # 2) run Duchi only on outside rows
+        work = flat[~inside_mask.squeeze()]  # (M, P)
+        s = torch.sort(work, dim=1, descending=True).values
         cssv = s.cumsum(dim=1) - eps
-        ind = torch.arange(1, s.size(1) + 1, device=v.device).float().unsqueeze(0)
+        ind = torch.arange(1, work.size(1) + 1, device=v.device).float().unsqueeze(0)
         rho = (s - cssv / ind > 0).float().sum(dim=1, keepdim=True) - 1
         theta = cssv.gather(1, rho.long()) / (rho + 1)
-        w = torch.sign(flat) * torch.clamp(abs_v - theta, min=0.0)
-        return w.view_as(v)
+        proj = torch.sign(work) * torch.clamp(work - theta, min=0.0)
+
+        flat[~inside_mask.squeeze()] = proj
+        return flat.view_as(v)
