@@ -217,7 +217,7 @@ class AdvMultipleKernelTrain(BaseEstimator, RegressorMixin):
     
 class LinearNet(nn.Module):
     def __init__(self, input_dim, output_dim):
-        super(LinearNet, self).__init__()
+        super().__init__()
         self.model = nn.Sequential(
             nn.Linear(input_dim, output_dim, bias=False),
         )
