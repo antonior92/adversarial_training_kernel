@@ -1,192 +1,148 @@
 import torch
 import torch.nn as nn
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 class PGD(nn.Module):
     '''
-    PGD in the paper 'Towards Deep Learning Models Resistant to Adversarial Attacks'
-    [https://arxiv.org/abs/1706.06083]
-
-    distance measure: Linf
-
     arguments:
         - model (nn.Module): model to attack
         - loss_fn (callable): loss function
-        - a (float): lower bound of the input
-        - b (float): upper bound of the input
-        - eps (float): maximum perturbation
-        - alpha (float): step size
-        - steps (int): number of steps
-        - random_start (bool): using random initialization of delta
+        - p (float): distance measure
+        - adv_radius (float): maximum perturbation
+        - step_size (float): step size
+        - nsteps (int): number of steps
 
     shape:
-        - X: (N, C, H, W) where N = batch size, C = number of channels, H = height and W = width
+        - X: (N, P) where N is the number of samples and P is the number of features
         - y: (N,)
-        - output: (N, C, H, W)
+        - output: (N, P)
     '''
 
     def __init__(
         self,
         model,
         loss_fn,
-        a,
-        b,
-        eps=8 / 255,
-        alpha=2 / 255,
-        steps=10,
-        random_start=False,
+        p=torch.inf,
+        adv_radius=8 / 255,
+        step_size=2 / 255,
+        nsteps=10,
     ):
-        super(PGD, self).__init__()
-        self.model = model
-        self.loss_fn = loss_fn
-        self.a = a
-        self.b = b
-        self.eps = eps
-        self.alpha = alpha
-        self.steps = steps
-        self.random_start = random_start
+        super().__init__()
+        self.model, self.loss_fn = model, loss_fn
+        self.adv_radius, self.step_size, self.nsteps = adv_radius, step_size, nsteps
+        self.p = p
+        assert p >= 1 or p == torch.inf, "p must be >= 1 or p == inf"
+        self.q = 1 if p == torch.inf else (torch.inf if p == 1 else p / (p - 1))
 
-    def forward(self, X, y):
-        X_adv = X.clone()
-        X_adv.requires_grad = True
+    def forward(self, X, y, debug=False):
+        X_adv = X.detach().clone().requires_grad_(True)
+        if debug:
+            advs, losses = [], []
 
-        if self.random_start:
-            # starting at a uniformly random point
-            X_adv = X_adv + torch.empty_like(X_adv).uniform_(-self.eps, self.eps)
-            X_adv = torch.clamp(X_adv, min=self.a, max=self.b)
-
-        for _ in range(self.steps):
+        for _ in range(self.nsteps):
             loss = self.loss_fn(self.model(X_adv), y)
-            grad = torch.autograd.grad(
+            if debug:
+                losses.append(loss.item())
+                advs.append(X_adv.detach().clone())
+
+            (grad,) = torch.autograd.grad(
                 loss, X_adv, retain_graph=False, create_graph=False
-            )[0]
+            )
+            grad = self.normalize_(grad)
+
+            # flatten all but the batch dimension; check if norms are ok
+            flat = grad.view(grad.shape[0], -1)
+            norms = torch.norm(flat, self.p, dim=1)
+            tol = 1e-3
+            ok = (norms < tol) | (torch.abs(norms - 1.0) < tol)
+            assert torch.all(ok), f"L_p norms not approx. 0/1: {norms}"
 
             # update X_adv with the gradient step
-            X_adv = X_adv + self.alpha * grad.sign()
+            X_adv = X_adv + self.step_size * grad
 
-            # project X_adv to the epsilon-ball around X
-            X_adv = torch.clamp(X_adv, X - self.eps, X + self.eps)
+            # project X_adv onto the p-ball around X
+            X_adv = self.project_(X, X_adv)
 
-            # ensure X_adv stays within the valid input range [a, b]
-            X_adv = torch.clamp(X_adv, min=self.a, max=self.b)
+        if debug:
+            advs.append(X_adv.detach().clone())
+            losses.append(self.loss_fn(self.model(X_adv), y).item())
+
+        init_loss = self.loss_fn(self.model(X), y)
+        adv_loss = self.loss_fn(self.model(X_adv), y)
+        assert (
+            adv_loss >= init_loss
+        ), f" adversarial loss ({adv_loss}) lower than initial loss ({init_loss})"
+
+        if debug:
+            return advs, losses
 
         return X_adv
 
+    def normalize_(self, grad):
+        if self.p == torch.inf:
+            return grad.sign()
+        if self.p == 1:  # put all mass in the direction of the maximum absolute value
+            flat = grad.view(grad.shape[0], -1)
+            # find index of maximum absolute value for each sample
+            idx = flat.abs().argmax(dim=1)
+            out = torch.zeros_like(grad)
+            # scatter 1.0 at the index of maximum absolute value; everything else is 0
+            out.view(grad.shape[0], -1).scatter_(1, idx.unsqueeze(1), 1.0)
+            return out * grad.sign()
+        # 1 < p < inf
+        flat = grad.view(grad.shape[0], -1)
+        power = 1.0 / (self.p - 1)
+        norm_q = torch.norm(flat, p=self.q, dim=1, keepdim=True) + 1e-12
+        # d = sign(g) * |g|^{1/(p-1)} / ||g||_{q}^{1/(p-1)}
+        d = flat.sign() * flat.abs().pow(power) / norm_q.pow(power)
+        return d.view_as(grad)
 
-if __name__ == "__main__":
+    def project_(self, X, X_adv):
+        delta = X_adv - X
+        if self.p == torch.inf:
+            delta = delta.clamp(-self.adv_radius, self.adv_radius)
+        elif self.p == 1:
+            delta = self._proj_l1_ball(delta, self.adv_radius)
+        else:  # 1 < p < inf
+            flat = delta.view(delta.shape[0], -1)
+            p_norm = torch.norm(flat, p=self.p, dim=1, keepdim=True)
+            # compute scaling factor for each sample; factor is 1 if we are within the p-ball
+            factor = (self.adv_radius / (p_norm + 1e-12)).clamp(max=1.0)
+            # scale and reshape back to original shape
+            delta = (flat * factor).view_as(delta)
 
-    def f(x):
-        return np.sin(x)
+        # check if norms are ok
+        flat = delta.view(delta.shape[0], -1)
+        if self.p == torch.inf:
+            p_norm = torch.max(flat.abs(), dim=1, keepdim=True).values
+        else:
+            p_norm = torch.norm(flat, p=self.p, dim=1, keepdim=True)
+        assert (
+            torch.max(p_norm) <= self.adv_radius + 1e-6
+        ), f"p-norm = {p_norm.max()} > adv_radius = {self.adv_radius} (tolerance = 1e-6)"
 
-    # sample N points in the range [a, b); a <= b
-    a, b = 3, 10
-    N = 50
-    X = (a - b) * np.random.rand(N, 1) + b
-    # generate noisy observations of sin(x)
-    mu, sigmasq = 0, 0.1
-    y = f(X).reshape(-1, 1) + np.random.normal(
-        loc=mu, scale=np.sqrt(sigmasq), size=(N, 1)
-    )
+        return (X + delta).requires_grad_(True)
 
-    # generate a smooth curve for sin(x) over the same range
-    X_eval = np.linspace(a, b, 1000).reshape(-1, 1)
-    y_eval = f(X_eval)
+    @staticmethod
+    def _proj_l1_ball(v, eps):
+        '''figure 1 from Duchi et al. (2008)'''
+        flat = v.view(v.size(0), -1)
+        abs_v = flat.abs()
+        l1_norm = abs_v.sum(dim=1, keepdim=True)
 
-    # define a simple MLP model
-    class MLP(nn.Module):
-        def __init__(self, input_dim, hidden_dim, output_dim):
-            super(MLP, self).__init__()
-            self.model = nn.Sequential(
-                nn.Linear(input_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Linear(hidden_dim, hidden_dim),
-                nn.ReLU(),
-                nn.Linear(hidden_dim, output_dim),
-            )
+        # 1) check if we are inside the l1-ball
+        inside_mask = l1_norm <= eps
+        if inside_mask.all():
+            return v  # nothing to do
 
-        def forward(self, x):
-            return self.model(x)
+        # 2) run Duchi only on outside rows
+        work = flat[~inside_mask.squeeze()]  # (M, P)
+        s = torch.sort(work, dim=1, descending=True).values
+        cssv = s.cumsum(dim=1) - eps
+        ind = torch.arange(1, work.size(1) + 1, device=v.device).float().unsqueeze(0)
+        rho = (s - cssv / ind > 0).float().sum(dim=1, keepdim=True) - 1
+        theta = cssv.gather(1, rho.long()) / (rho + 1)
+        proj = torch.sign(work) * torch.clamp(work - theta, min=0.0)
 
-    device = torch.device(
-        'mps'
-        if torch.backends.mps.is_available()
-        else 'cuda' if torch.cuda.is_available() else 'cpu'
-    )
-    print(f"Using device: {device}")
-    X_tensor = torch.tensor(X, dtype=torch.float32).to(device)
-    y_tensor = torch.tensor(y, dtype=torch.float32).to(device)
-
-    input_dim = 1
-    hidden_dim = 2**6
-    output_dim = 1
-    model = MLP(input_dim, hidden_dim, output_dim)
-    model.to(device)
-
-    loss_fn = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-    # Train the model
-    epochs = int(1e3)
-    model.train()
-    for epoch in range(epochs):
-        optimizer.zero_grad()
-        predictions = model(X_tensor)
-        loss = loss_fn(predictions, y_tensor)
-        loss.backward()
-        optimizer.step()
-
-        if (epoch + 1) % 100 == 0:
-            print(f"Epoch [{epoch + 1}/{epochs}], Loss: {loss.item():.4f}")
-
-    # Evaluate the model
-    model.eval()
-    X_eval_tensor = torch.tensor(X_eval, dtype=torch.float32).to(device)
-    with torch.no_grad():
-        y_pred = model(X_eval_tensor).cpu().numpy()
-
-    # Plot the adversarial examples
-    plt.plot(X_tensor.cpu().numpy(), y_tensor.cpu().numpy(), 'o', label='Data')  # data
-    plt.plot(X_eval, y_eval, label='sin(x)', color='red')  # truth
-    plt.plot(X_eval, y_pred, label='MLP Fit', color='blue')  # model prediction
-    plt.legend()
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.show()
-
-    pgd_attack = PGD(
-        model=model,
-        loss_fn=nn.MSELoss(),
-        a=a,
-        b=b,
-        eps=5,
-        alpha=0.01,
-        steps=100,
-        random_start=False,
-    )
-
-    for i in range(10):
-        # x = torch.tensor((a - b) * np.random.rand(1, 1) + b, dtype=torch.float32).to(device)
-        x = torch.tensor([10], dtype=torch.float32).to(device)
-        y = model(x)
-        x_adv = pgd_attack(
-            x.reshape(1, 1, 1, 1), f(x.detach().cpu()).to(device)
-        ).reshape(1)
-        y_adv = model(x_adv)
-
-        x = x.cpu().item()
-        y = y.detach().cpu().item()
-        x_adv = x_adv.cpu().item()
-        y_adv = y_adv.detach().cpu().item()
-
-        print(
-            f'x = {x:.4f}, pred y = {y:.4f}, true y = {f(x):.4f}, delta y = {np.abs(y - f(x)):.4f}'
-        )
-        print(
-            f'x_adv = {x_adv:.4f}, pred y_adv = {y_adv:.4f}, true y = {f(x):.4f}, delta y = {np.abs(y_adv - f(x)):.4f}'
-        )
-        print(
-            f'diff = {(np.abs(y - f(x_adv)) - (np.abs(y - f(x)))):.4f} (this should be > 0)\n'
-        )
-    print("finished")
+        flat[~inside_mask.squeeze()] = proj
+        return flat.view_as(v)
