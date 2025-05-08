@@ -1,11 +1,6 @@
-# TODO:
-# - Make Cross validation computationaly effficient
-# - How to choose the best kernel parameterautomatically
-
-
 from datasets import *
 import time
-from sklearn.metrics import (r2_score,)
+from sklearn.metrics import (r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error)
 from onedim_curve_fitting import get_kernel
 from kernel_advtrain import AdvKernelTrain, AdvMultipleKernelTrain, LinearAdvFourierFeatures
 from sklearn.kernel_ridge import KernelRidge
@@ -40,19 +35,16 @@ if __name__ == '__main__':
 
 
     adv_radius = float(args.adv_radius)
-    adv_radius = 0.01
     if args.setting == 'regr':
         all_methods = ['akr', 'kr_cv', 'amkl', 'laff']
-        all_methods = ['laff']
         datasets = [polution, us_crime, wine, diabetes, abalone]
         tp = 'regression'
-        metrics_names = ['R2',]
-        metrics_of_interest = [r2_score,]
-        metric_show = 'R2'
+        metrics_names = ['r2_score', 'mape']
+        metrics_of_interest = [r2_score,mean_absolute_percentage_error]
+        metric_show = 'mape'
         ord = np.inf
-        ylabel = 'R-squared'
+        ylabel = 'MAPE'
         methods_to_show = ['akr', 'kr_cv']
-        methods_to_show = ['laff']
         methods_name = ['Adv Kern', 'Kernel Ridge']
     else:
         raise ValueError('Setting not implemented')
@@ -79,32 +71,24 @@ if __name__ == '__main__':
                     est = GridSearchCV(est, param_grid={"gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
                 elif method == 'kr_cv':
                     est = KernelRidge(kernel=kernel, **kernel_params)
-                    est = GridSearchCV(est, param_grid={"alpha": np.logspace(1, -6, 21), "gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
+                    est = GridSearchCV(est, param_grid={"alpha": np.logspace(-6, 1, 21), "gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
                 elif method == 'amkl':
                     est = AdvMultipleKernelTrain(verbose=False, kernel=5 * ['rbf'], kernel_params=[{'gamma': 10}, {'gamma': 1e0}, {'gamma': 0.1}, {'gamma': 1e-2}, {'gamma': 1e-3}])
                 elif method == 'laff':
+                    print("a")
                     est = LinearAdvFourierFeatures(R=1000, adv_radius=adv_radius, verbose=True)
+                    print('b')
                 estimator = est.fit(X_train, y_train)
+                print('c')
                 y_pred = estimator.predict(X_test)
 
                 exec_time = time.time() - start_time
                 #sns.scatterplot(x=y_test, y=y_pred).set_title(method.__name__)
                 #plt.show()
                 ms = [dset.__name__, method]
-                if adv_radius == 0:
-                    ms += [m(y_test, y_pred) for m in metrics_of_interest]
-                    for m in metrics_of_interest:
-                        ms += bootstrap(y_test, y_pred, m, [0.25, 0.75])
-                else:
-                    # Add adversarial training
-                    if y_pred_adv is None:
-                        ms += [None for m in metrics_of_interest]
-                        for m in metrics_of_interest:
-                            ms += [None, None]
-                    else:
-                        ms += [m(y_test, y_pred_adv) for m in metrics_of_interest]
-                        for m in metrics_of_interest:
-                            ms += bootstrap(y_test, y_pred_adv, m, [0.25, 0.75])
+                ms += [m(y_test, y_pred) for m in metrics_of_interest]
+                for m in metrics_of_interest:
+                    ms += bootstrap(y_test, y_pred, m, [0.25, 0.75])
                 ms += [exec_time]
                 all_results.append(ms)
 
@@ -145,7 +129,6 @@ if __name__ == '__main__':
         names = [d.__name__.replace('_', ' ').capitalize() for d in datasets]
         plt.xticks(range(len(datasets)),names)
         plt.ylabel(ylabel)
-        plt.ylim((0, 1))
         plt.legend( title='', bbox_to_anchor=(0.55, 0.75))
 
         import matplotlib as mpl
