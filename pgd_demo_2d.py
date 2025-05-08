@@ -74,17 +74,20 @@ if __name__ == "__main__":
     ax.plot_surface(x1, x2, loss, alpha=0.6, cmap='cividis')
     ax.set_xlabel('x1'), ax.set_ylabel('x2'), ax.set_zlabel('loss')
     advs = torch.stack(advs)
+
+    # plot advs
     ax.scatter(
         advs[:, 0],  # x1
         advs[:, 1],  # x2
-        losses,
-        color='blue',
+        torch.zeros_like(advs[:, 0]),
+        color='green',
         label='intermediate advs',
         s=60,  # size of points
         edgecolors='black',
         linewidths=0.5,
     )
 
+    # plot boundary
     if p == 1:
         x1, x2 = rotated_square(adv_radius, center=(x1_init, x2_init))
     elif p == 2:
@@ -93,16 +96,25 @@ if __name__ == "__main__":
         x1, x2 = square(adv_radius, center=(x1_init, x2_init))
 
     if p in [1, 2, torch.inf]:
-        max_loss = torch.max(loss).item()
-        heights = torch.linspace(0, max_loss, steps=4)
-        for h in heights:
-            ax.plot(
-                x1,
-                x2,
-                [h] * len(x1),
-                color='blue',
-                alpha=0.5,
-                label=f'adv radius = {adv_radius}' if h == heights[0] else None,
-            )
+        ax.plot(
+            x1,
+            x2,
+            torch.zeros_like(x1),
+            color='green',
+            label=f'adv radius = {adv_radius}',
+            alpha=0.5,
+        )
+
+    # plot loss(advs)
+    ax.scatter(
+        advs[:, 0],  # x1
+        advs[:, 1],  # x2
+        losses,
+        color='blue',
+        label='loss(intermediate advs)',
+        s=60,  # size of points
+        edgecolors='black',
+        linewidths=0.5,
+    )
     ax.legend()
     plt.show()
