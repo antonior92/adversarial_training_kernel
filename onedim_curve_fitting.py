@@ -46,9 +46,6 @@ def get_curve(rng, n, curve, std_noise=0.2):
 
 
 
-
-
-
 valid_kernels = ['rbf', 'linear', 'matern1-2', 'matern3-2', 'matern5-2']
 
 def get_kernel(kernel, usetorch=False):
@@ -100,20 +97,20 @@ def get_kernel(kernel, usetorch=False):
         return kernel, {}
     elif kernel == 'linear':
         def kernel(x, y):
-            return np.dot(x, y.T)
+            return x @ y.T
         return kernel, {}
     elif kernel == 'matern1-2':
         def kernel(x, y, gamma=default_gamma):
-            return np.exp(-mysqrt(sq_dist(x, y)) * gamma)
+            return myexp(-mysqrt(sq_dist(x, y)) * gamma)
         return kernel, {}
     elif kernel == 'matern3-2':
         def kernel(x, y, gamma=default_gamma):
-            temp = np.sqrt(sq_dist(x, y))
+            temp = mysqrt(sq_dist(x, y))
             return (1 + mysqrt(3) * temp * gamma) * myexp(-mysqrt(3) *temp * gamma)
         return kernel, {}
     elif kernel == 'matern5-2':
         def kernel(x, y, gamma=default_gamma):
-            temp = np.sqrt(sq_dist(x, y))
+            temp = mysqrt(sq_dist(x, y))
             return (1 + mysqrt(5) * temp * gamma + 5 * temp**2 * gamma ** 2 / 3) * myexp(- mysqrt(5) * temp * gamma)
         return kernel, {}
     else:
@@ -130,7 +127,6 @@ def get_estimate(X, y, kernel, method='akr', kernel_params=None):
         est = KernelRidge(kernel=kernel, **kernel_params)
         est = GridSearchCV(est, param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3]})
     elif method == 'kr':
-
         est = KernelRidge(kernel=kernel, alpha=1/np.sqrt(n_train), **kernel_params)
 
     est.fit(X, y)

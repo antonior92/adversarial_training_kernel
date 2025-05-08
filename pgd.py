@@ -21,7 +21,7 @@ class PGD(nn.Module):
     def __init__(
         self,
         model,
-        loss_fn,
+        loss_fn = nn.MSELoss(),
         p=torch.inf,
         adv_radius=8 / 255,
         step_size=2 / 255,
