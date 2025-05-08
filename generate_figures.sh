@@ -11,6 +11,33 @@ do
     python onedim_curve_fitting.py --kernel $kernel  --curve $curve  --style styles/vr.mpl  --save_fig "img/1d_plots/$kernel-curve$curve.pdf"
   done
 done
+#############################################
+#           Generate SNR plots  (Linear)    #
+#             Fig S.3 (b/c)                 #
+#############################################
+mkdir -p out/snr
+python error_vs_snr.py --kernel 'linear' --dataset 'linear'  --n_reps 20 --n_points 20 --dont_plot_figure --csv_file "out/snr/linear.csv"
+
+python error_vs_snr.py --kernel 'linear' --load  --csv_file "out/snr/linear.csv" --save_fig "img/snr/linear.pdf" --style styles/vr.mpl
+
+
+#############################################
+#      Generate SNR plots (Nonlinear)       #
+#             Fig S.3 (a)                   #
+#############################################
+mkdir -p out/snr
+for dataset in 'sine_1d' 'squarewave';
+do
+  python error_vs_snr.py --kernel 'rbf' --dataset $dataset  --n_reps 10 --n_points 10  --dont_plot_figure --csv_file "out/snr/rbf-$dataset.csv"
+done
+
+
+mkdir -p img/snr
+for dataset in 'sine_1d' 'squarewave';
+do
+  python error_vs_snr.py --kernel 'rbf'  --dataset $dataset  --style styles/vr.mpl  --load --csv_file "out/snr/rbf-$dataset.csv" --save_fig "img/snr/rbf-$dataset.pdf"
+done
+
 
 
 ####################################

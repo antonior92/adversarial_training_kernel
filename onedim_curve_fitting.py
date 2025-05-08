@@ -5,7 +5,7 @@ from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
 
 
-def curve1(rng, n):
+def curve1(rng, n, std_noise=0.2):
     X = 5 * rng.rand(n, 1)
     y = np.sin(X).ravel()
     # Add noise to targets
@@ -15,34 +15,32 @@ def curve1(rng, n):
     return X, y, X_plot, y_plot
 
 
-def curve2(rng, n):
+def curve2(rng, n, std_noise=0.2):
     ntest = 400
     X = rng.rand(n)
     Xtest = np.linspace(0, 1, ntest)
-    std_noise = 0.2
     y = np.sin(4 * np.pi * X) + std_noise * rng.randn(n)
     ytest = np.sin(4 * np.pi * Xtest)
     return  X.reshape(-1, 1), y, Xtest.reshape(-1, 1), ytest
 
 
-def curve3(rng, n):
+def curve3(rng, n, std_noise=0.2):
     ntest = 400
     X = rng.rand(n)
     Xtest = np.linspace(0, 1, ntest)
-    std_noise = 0.2
     y = np.sign(np.sin(4 * np.pi * X)) + std_noise * rng.randn(n)
     ytest = np.sign(np.sin(4 * np.pi * Xtest))
     return X.reshape(-1, 1), y, Xtest.reshape(-1, 1), ytest
 
 
 
-def get_curve(rng, n, curve):
+def get_curve(rng, n, curve, std_noise=0.2):
     if curve == 1:
-        return curve1(rng, n)
+        return curve1(rng, n, std_noise)
     elif curve == 2:
-        return curve2(rng, n)
+        return curve2(rng, n, std_noise)
     elif curve == 3:
-        return curve3(rng, n)
+        return curve3(rng, n, std_noise)
     else:
         raise ValueError("Invalid curve")
 
@@ -78,6 +76,7 @@ def get_kernel(kernel):
         raise ValueError("Invalid kernel")
 
 def get_estimate(X, y, kernel, method='akr', kernel_params=None):
+    n_train, n_features = X.shape
     if method == 'akr':
         est = AdvKernelTrain(verbose=False, kernel=kernel, **kernel_params)
     elif method == 'akr_cv':
@@ -85,9 +84,10 @@ def get_estimate(X, y, kernel, method='akr', kernel_params=None):
         est = GridSearchCV(est, param_grid={"gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
     elif method == 'kr_cv':
         est = KernelRidge(kernel=kernel, **kernel_params)
-        est = GridSearchCV(est, param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3]})
-    elif method == 'laff':
-        est = LinearAdvFourierFeatures(R=1000, adv_radius=0, verbose=True)
+        est = GridSearchCV(est, param_grid={"alpha": 1/np.sqrt(n_train) * np.logspace(-2, 2, 20)})
+    elif method == 'kr':
+
+        est = KernelRidge(kernel=kernel, alpha=1/np.sqrt(n_train), **kernel_params)
 
     est.fit(X, y)
     return est
@@ -107,13 +107,15 @@ if __name__ == "__main__":
     parser.add_argument('--save_figure', type=str, default='', help='Output figure')
     parser.add_argument('--gamma', type=float, default=12, help='Gamma parameter for the kernel')
     parser.add_argument('--style', type=str, nargs='+',  default=[], help='Style file to be used')
+    parser.add_argument('--std_noise', type=float, default=0.2, help='Standard deviation of the noise')
+    parser.add_argument('--rng', type=int, default=4, help='Random number generator')
     args = parser.parse_args()
 
 
-    rng = np.random.RandomState(42)
+    rng = np.random.RandomState(args.rng)
     n = args.n
 
-    X, y, X_plot, y_plot = get_curve(rng, n, curve=args.curve)
+    X, y, X_plot, y_plot = get_curve(rng, n, curve=args.curve, std_noise=args.std_noise)
 
     def sq_dist(a, b):
         C = ((a[:, None] - b[None, :]) ** 2)
