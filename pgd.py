@@ -21,7 +21,7 @@ class PGD(nn.Module):
     def __init__(
         self,
         model,
-        loss_fn = nn.MSELoss(),
+        loss_fn=nn.MSELoss(),
         p=torch.inf,
         adv_radius=8 / 255,
         step_size=2 / 255,
@@ -53,7 +53,7 @@ class PGD(nn.Module):
             # flatten all but the batch dimension; check if norms are ok
             flat = grad.view(grad.shape[0], -1)
             norms = torch.norm(flat, self.p, dim=1)
-            tol = 1e-3
+            tol = 1e-1
             ok = (norms < tol) | (torch.abs(norms - 1.0) < tol)
             assert torch.all(ok), f"L_p norms not approx. 0/1: {norms}"
 

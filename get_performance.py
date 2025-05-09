@@ -6,6 +6,9 @@ from kernel_advtrain import AdvKernelTrain, AdvMultipleKernelTrain, LinearAdvFou
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
 import os
+from pgd import PGD
+import torch
+from pgd_attack_krr import KernelRidgeModel
 
 
 def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):
@@ -55,7 +58,7 @@ if __name__ == '__main__':
         df = pd.read_csv(args.csv_file)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     else:
-        columns_names = ['dset', 'method'] + metrics_names + \
+        columns_names = ['dset', 'method', 'adv', 'p', 'radius'] + metrics_names + \
                         [nn + q for nn in metrics_names for q in ['q1', 'q3']] + \
                         ['exec_time']
         
@@ -84,20 +87,35 @@ if __name__ == '__main__':
                 elif method == 'laff':
                     est = LinearAdvFourierFeatures(R=1000, adv_radius=adv_radius, verbose=True)
                 estimator = est.fit(X_train, y_train)
-                print('c')
                 y_pred = estimator.predict(X_test)
+                if isinstance(y_pred, torch.Tensor):
+                    y_pred = y_pred.detach().numpy()
 
                 exec_time = time.time() - start_time
                 #sns.scatterplot(x=y_test, y=y_pred).set_title(method.__name__)
                 #plt.show()
-                ms = [dset.__name__, method]
+                
+                ms = [dset.__name__, method, 'False', 0, 0]
                 ms += [m(y_test, y_pred) for m in metrics_of_interest]
                 for m in metrics_of_interest:
                     ms += bootstrap(y_test, y_pred, m, [0.25, 0.75])
                 ms += [exec_time]
                 all_results.append(ms)
-
-
+                
+                if method != 'amkl':
+                    model = estimator.predict if method == 'laff' else KernelRidgeModel.from_sklearn('rbf', estimator)
+                    params = [{'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 1, 'adv_radius': 8 / 255, 'step_size': 2 / 255, 'nsteps': 10},
+                               {'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': 8 / 255, 'step_size': 2 / 255, 'nsteps': 10},
+                               {'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': torch.inf, 'adv_radius': 8 / 255, 'step_size': 2 / 255, 'nsteps': 10}]
+                    for param in params:
+                        attack = PGD(**param)
+                        y_pred_adv = estimator.predict(attack(torch.tensor(X_test, requires_grad=True), torch.tensor(y_test)).detach().numpy())   
+                        ms = [dset.__name__, method, 'True', param['p'], param['adv_radius']]     
+                        ms += [m(y_test, y_pred_adv) for m in metrics_of_interest]
+                        for m in metrics_of_interest:
+                            ms += bootstrap(y_test, y_pred_adv, m, [0.25, 0.75])
+                        ms += [exec_time]
+                        all_results.append(ms)
 
                 df = pd.DataFrame(all_results, columns=columns_names)
                 df.to_csv(args.csv_file)

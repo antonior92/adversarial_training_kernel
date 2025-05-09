@@ -8,20 +8,6 @@ import numpy as np
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
 
-kernel_name='rbf'
-kernel, kernel_params = get_kernel(kernel_name)
-
-rng = np.random.RandomState(2)
-X, y, X_plot, y_plot = get_curve(rng, 100, curve=3)
-kr = GridSearchCV(
-        KernelRidge(kernel=kernel, **kernel_params),
-        param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3]},
-    )
-
-kr.fit(X, y)
-
-X_test, y_test, _X_plot, y_plot = get_curve(rng, 5, curve=3, std_noise=0)
-y_pred = kr.predict(X_test)
 
 
 class KernelRidgeModel(nn.Module):
@@ -40,17 +26,36 @@ class KernelRidgeModel(nn.Module):
 
     @classmethod
     def from_sklearn(cls, kernel_name, krr_sklearn):
-        if isinstance(kr, GridSearchCV):
-            return cls(kernel_name, krr_sklearn.best_estimator_.dual_coef_, krr_sklearn.best_estimator_. X_fit_)
-        elif isinstance(kr, KernelRidge):
+        if isinstance(krr_sklearn, GridSearchCV):
+            return cls.from_sklearn(kernel_name, krr_sklearn.best_estimator_)
+        elif isinstance(krr_sklearn, KernelRidge):
             return cls(kernel_name, krr_sklearn.dual_coef_, krr_sklearn.X_fit_)
+        elif isinstance(krr_sklearn, AdvKernelTrain):
+            return cls.from_sklearn(kernel_name, krr_sklearn.model_)
         else:
             raise NotImplementedError()
 
 
 
 if __name__ == '__main__':
+
     import matplotlib.pyplot as plt
+
+    kernel_name='rbf'
+    kernel, kernel_params = get_kernel(kernel_name)
+
+    rng = np.random.RandomState(2)
+    X, y, X_plot, y_plot = get_curve(rng, 100, curve=3)
+    kr = GridSearchCV(
+            KernelRidge(kernel=kernel, **kernel_params),
+            param_grid={"alpha": [1e0, 0.1, 1e-2, 1e-3]},
+        )
+
+    kr.fit(X, y)
+
+    X_test, y_test, _X_plot, y_plot = get_curve(rng, 5, curve=3, std_noise=0)
+    y_pred = kr.predict(X_test)
+
 
     krrtorch = KernelRidgeModel.from_sklearn(kernel_name, kr)
     pgd = PGD(
