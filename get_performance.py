@@ -5,6 +5,7 @@ from onedim_curve_fitting import get_kernel
 from kernel_advtrain import AdvKernelTrain, AdvMultipleKernelTrain, LinearAdvFourierFeatures
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
+import os
 
 
 def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):
@@ -26,13 +27,13 @@ if __name__ == '__main__':
     parser.add_argument('--dont_show', action='store_true', help='dont show plot, but maybe save it')
     parser.add_argument('--load_data', action='store_true', help='Enable data loading')
     parser.add_argument('--csv_file', type=str, default='out/performance_regr.csv',
-                        help='Output file')
+                        help='Output data')
+    parser.add_argument('--figure_dir', type=str, default='img',
+                        help='Output figures')
     parser.add_argument('--adv_radius', default=0, help='adversarial radius to evaluate the data')
     parser.add_argument('--style', type=str, nargs='+',  default=[], help='Style file to be used')
     parser.add_argument('--dont_plot_figure', action='store_true', help='Plot figure')
     args = parser.parse_args()
-
-
 
     adv_radius = float(args.adv_radius)
     if args.setting == 'regr':
@@ -57,7 +58,13 @@ if __name__ == '__main__':
         columns_names = ['dset', 'method'] + metrics_names + \
                         [nn + q for nn in metrics_names for q in ['q1', 'q3']] + \
                         ['exec_time']
+        
+        if not os.path.exists(os.path.dirname(args.csv_file)):
+            os.makedirs(os.path.dirname(args.csv_file))
 
+        if not os.path.exists(args.figure_dir):
+            os.makedirs(args.figure_dir)
+        
         all_results= []
         for dset in datasets:
             X_train, X_test, y_train, y_test = dset()
@@ -75,9 +82,7 @@ if __name__ == '__main__':
                 elif method == 'amkl':
                     est = AdvMultipleKernelTrain(verbose=False, kernel=5 * ['rbf'], kernel_params=[{'gamma': 10}, {'gamma': 1e0}, {'gamma': 0.1}, {'gamma': 1e-2}, {'gamma': 1e-3}])
                 elif method == 'laff':
-                    print("a")
                     est = LinearAdvFourierFeatures(R=1000, adv_radius=adv_radius, verbose=True)
-                    print('b')
                 estimator = est.fit(X_train, y_train)
                 print('c')
                 y_pred = estimator.predict(X_test)
@@ -91,6 +96,8 @@ if __name__ == '__main__':
                     ms += bootstrap(y_test, y_pred, m, [0.25, 0.75])
                 ms += [exec_time]
                 all_results.append(ms)
+
+
 
                 df = pd.DataFrame(all_results, columns=columns_names)
                 df.to_csv(args.csv_file)
@@ -132,6 +139,7 @@ if __name__ == '__main__':
         plt.legend( title='', bbox_to_anchor=(0.55, 0.75))
 
         import matplotlib as mpl
+
         ax = plt.gca()
         major_names = [n for i, n in enumerate(names) if i % 2 == 0]
         minor_names = [n for i, n in enumerate(names) if i % 2 == 1]
@@ -148,5 +156,5 @@ if __name__ == '__main__':
         mpl.rcParams['xtick.minor.pad'] = 32
         mpl.rcParams['xtick.direction'] = 'in'
 
-        plt.savefig(f'img/performace_{tp}.pdf')
+        plt.savefig(f'{args.figure_dir}/performace_{tp}.pdf')
         plt.show()
