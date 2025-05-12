@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
     adv_radius = float(args.adv_radius)
     if args.setting == 'regr':
-        all_methods = ['akr', 'kr_cv', 'amkl', 'laff']
+        all_methods = ['akr', 'kr_cv', 'amkl']
         datasets = [polution, us_crime, wine, diabetes, abalone]
         tp = 'regression'
         metrics_names = ['r2_score', 'mape']
@@ -80,20 +80,17 @@ if __name__ == '__main__':
                     est = AdvKernelTrain(verbose=False, kernel=kernel, **kernel_params)
                     est = GridSearchCV(est, param_grid={"gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
                 elif method == 'kr_cv':
-                    est = KernelRidge(kernel=kernel, **kernel_params)
-                    est = GridSearchCV(est, param_grid={"alpha": np.logspace(-6, 1, 21), "gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
+                    est = KernelRidge(kernel='rbf', **kernel_params)  # Needs to have rbf here, otherwise cross-validation will not work, because kernel ridge already define parameter
+                    est = GridSearchCV(est, param_grid={"alpha":[10, 1e0, 0.1, 1e-2, 1e-3] , "gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
                 elif method == 'amkl':
                     est = AdvMultipleKernelTrain(verbose=False, kernel=5 * ['rbf'], kernel_params=[{'gamma': 10}, {'gamma': 1e0}, {'gamma': 0.1}, {'gamma': 1e-2}, {'gamma': 1e-3}])
-                elif method == 'laff':
-                    est = LinearAdvFourierFeatures(R=1000, adv_radius=adv_radius, verbose=True)
                 estimator = est.fit(X_train, y_train)
                 y_pred = estimator.predict(X_test)
+
                 if isinstance(y_pred, torch.Tensor):
                     y_pred = y_pred.detach().numpy()
 
                 exec_time = time.time() - start_time
-                #sns.scatterplot(x=y_test, y=y_pred).set_title(method.__name__)
-                #plt.show()
                 
                 ms = [dset.__name__, method, 'False', 0, 0]
                 ms += [m(y_test, y_pred) for m in metrics_of_interest]
@@ -103,18 +100,14 @@ if __name__ == '__main__':
                 all_results.append(ms)
                 
                 if method != 'amkl':
-                    model = estimator.predict if method == 'laff' else KernelRidgeModel.from_sklearn('rbf', estimator)
-                    params = [{'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad/10, 'nsteps': 20} for rad in [0.001, 0.005, 0.01, 0.05, 0.1]] 
-                    params += [{'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad/10, 'nsteps': 20} for rad in [0.001, 0.005, 0.01, 0.05, 0.1]]
+                    model = KernelRidgeModel.from_sklearn('rbf', estimator)
+                    params = [{'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad/50, 'nsteps': 100} for rad in [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]]
+                    params += [{'loss_fn': torch.nn.MSELoss(), 'p': np.inf, 'adv_radius': rad, 'step_size': rad/10, 'nsteps': 100} for rad in [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]]
                     for param in params:
-                        if method == 'laff':
-                            pass
-                            #attack = estimator.create_attack()
-                            #X_adv = attack(torch.tensor(X_test, requires_grad=True), torch.tensor(y_test))
-                            #y_pred_adv = estimator.predict(X_adv).detach().numpy()
-                        else:
-                            attack = PGD(**param)
-                            y_pred_adv = estimator.predict(attack(torch.tensor(X_test, requires_grad=True), torch.tensor(y_test)).detach().numpy())   
+                        attack = PGD(model, **param)
+                        X_adv = attack(torch.tensor(X_test), torch.tensor(y_test))
+                        print(model(torch.tensor(X_test)))
+                        y_pred_adv = estimator.predict(X_adv.detach().numpy())
                         ms = [dset.__name__, method, 'True', param['p'], param['adv_radius']]     
                         ms += [m(y_test, y_pred_adv) for m in metrics_of_interest]
                         for m in metrics_of_interest:
@@ -126,6 +119,9 @@ if __name__ == '__main__':
                 df.to_csv(args.csv_file)
                 print(df)
 
+    # Load data
+    print(df)
+    df = df[~df['adv']]
     for nn in metrics_names:
         print(nn)
         # Also print preprocessed version for the paper

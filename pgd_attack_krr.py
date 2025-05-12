@@ -11,27 +11,32 @@ from sklearn.model_selection import GridSearchCV
 
 
 class KernelRidgeModel(nn.Module):
-    def __init__(self, kernel, dual_coef_, X_fit):
+    def __init__(self, kernel, dual_coef_, X_fit, best_params=None):
         super().__init__()
         self.kernel = kernel
         self.dual_coef_ = torch.tensor(dual_coef_)
         self.X_fit = torch.tensor(X_fit)
+        self.best_params = best_params
 
     def forward(self, x):
         kernel, kernel_params = get_kernel(kernel=self.kernel, usetorch=True)
+        if self.best_params is not None:
+            for k, v in self.best_params.items():
+                if k in kernel_params:
+                    kernel_params[k] = v
+        else:
+            kernel_params = kernel_params
         K = kernel(x, self.X_fit, **kernel_params)
-        print(K.shape)
-        print(self.dual_coef_)
         return K @ self.dual_coef_
 
     @classmethod
-    def from_sklearn(cls, kernel_name, krr_sklearn):
+    def from_sklearn(cls, kernel_name, krr_sklearn, best_params=None):
         if isinstance(krr_sklearn, GridSearchCV):
-            return cls.from_sklearn(kernel_name, krr_sklearn.best_estimator_)
+            return cls.from_sklearn(kernel_name, krr_sklearn.best_estimator_, best_params=krr_sklearn.best_params_)
         elif isinstance(krr_sklearn, KernelRidge):
-            return cls(kernel_name, krr_sklearn.dual_coef_, krr_sklearn.X_fit_)
+            return cls(kernel_name, krr_sklearn.dual_coef_, krr_sklearn.X_fit_, best_params=best_params)
         elif isinstance(krr_sklearn, AdvKernelTrain):
-            return cls.from_sklearn(kernel_name, krr_sklearn.model_)
+            return cls.from_sklearn(kernel_name, krr_sklearn.model_, best_params=best_params)
         else:
             raise NotImplementedError()
 
@@ -44,7 +49,7 @@ if __name__ == '__main__':
     kernel_name='rbf'
     kernel, kernel_params = get_kernel(kernel_name)
 
-    rng = np.random.RandomState(2)
+    rng = np.random.RandomState(6)
     X, y, X_plot, y_plot = get_curve(rng, 100, curve=3)
     kr = GridSearchCV(
             KernelRidge(kernel=kernel, **kernel_params),

@@ -44,7 +44,6 @@ def kernel_adversarial_training(
 ):
     n_train, n_features = X.shape
 
-    print(adv_radius)
     w_samples = 1 / n_train * np.ones(n_train)
     regul_correction = 1
 
@@ -53,7 +52,6 @@ def kernel_adversarial_training(
     K = pairwise_kernels(X, metric=kernel, **kernel_params)
     if adv_radius is None:
         adv_radius = 0.4 * np.sqrt(np.trace(K)) / n_train
-        print('adv_radius=' + str(adv_radius))
     for i in range(max_iter):
         # ------- 1. Solve reweighted ridge regression ------
         reg = regul_correction * adv_radius**2
@@ -155,7 +153,6 @@ def mkl_adversarial_training(
 ):
     n_train, n_features = X.shape
 
-    print(adv_radius)
     w_samples = 1 / n_train * np.ones(n_train)
     regul_correction = 1
 
@@ -166,7 +163,6 @@ def mkl_adversarial_training(
 
     if adv_radius is None:
         adv_radius = 0.4 / np.sqrt(n_train)
-        print('adv_radius=' + str(adv_radius))
 
     kernel_list = []
     for kernel_i, kparams_i in zip(kernel, kernel_params):
