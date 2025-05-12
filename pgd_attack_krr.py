@@ -7,6 +7,7 @@ from kernel_advtrain import kernel_adversarial_training, mkl_adversarial_trainin
 import numpy as np
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
+import copy
 
 
 
@@ -14,7 +15,7 @@ class KernelRidgeModel(nn.Module):
     def __init__(self, kernel, dual_coef_, X_fit, best_params=None):
         super().__init__()
         self.kernel = kernel
-        self.dual_coef_ = torch.tensor(dual_coef_)
+        self.dual_coef_ = torch.nn.Parameter(torch.tensor(dual_coef_))
         self.X_fit = torch.tensor(X_fit)
         self.best_params = best_params
 
@@ -40,10 +41,33 @@ class KernelRidgeModel(nn.Module):
         else:
             raise NotImplementedError()
 
+def fine_tunne_advtrain(model_base, X, y, lr=1e-2, nepochs=300, p=2, adv_radius=0.05, step_size=0.002,nsteps=100):
+    model = copy.deepcopy(model_base)
+    pgd = PGD(
+        model=model,
+        p=p,
+        adv_radius=adv_radius,
+        step_size=step_size,
+        nsteps=nsteps
+    )
+    X = torch.tensor(X)
+    y = torch.tensor(y)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    myloss = nn.MSELoss()
+    for epoch in range(nepochs):
+        optimizer.zero_grad()
+        X_adv = pgd(X, y)
+        y_adv =  model(X_adv)
+        loss = myloss(y_adv, y)
+        loss.backward()
+        optimizer.step()
+        if (epoch + 1) % 10 == 0:
+            print(f"Epoch [{epoch + 1}/{nepochs}] | Loss = {loss.item():.4f}")
+
+    return model
 
 
 if __name__ == '__main__':
-
     import matplotlib.pyplot as plt
 
     kernel_name='rbf'
@@ -71,12 +95,35 @@ if __name__ == '__main__':
         nsteps=100,
     )
     x_attack = pgd(torch.tensor(X_test), torch.tensor(y_test))
-
     y_attack = krrtorch(x_attack)
     plt.figure()
     plt.scatter(X_test, y_pred, c="k", label="Data", marker='o', zorder=1, edgecolors=(0, 0, 0))
     plt.scatter(x_attack.detach().numpy(), y_attack.detach().numpy(), c="k", label="Data", marker='x')
     plt.plot(X_plot, y_plot, c='k', ls=':', label='True')
-    y_pred_plot = kr.predict(X_plot)
+    y_pred_plot = krrtorch(torch.tensor(X_plot)).detach().numpy()
     plt.plot(X_plot, y_pred_plot)
+    plt.savefig(f'img/adv_attacks_before.pdf')
+    plt.show()
+
+
+    adv_train_model = fine_tunne_advtrain(krrtorch, X_plot, y_plot)
+
+    print('adv train')
+    pgd = PGD(
+        model=krrtorch,
+        p=2,
+        adv_radius=0.05,
+        step_size=0.002,
+        nsteps=100,
+    )
+    x_attack = pgd(torch.tensor(X_test), torch.tensor(y_test))
+    y_attack = krrtorch(x_attack)
+    y_pred = krrtorch(torch.tensor(X_test)).detach().numpy()
+    plt.figure()
+    plt.scatter(X_test, y_pred, c="k", label="Data", marker='o', zorder=1, edgecolors=(0, 0, 0))
+    plt.scatter(x_attack.detach().numpy(), y_attack.detach().numpy(), c="k", label="Data", marker='x')
+    plt.plot(X_plot, y_plot, c='k', ls=':', label='True')
+    y_pred_plot = krrtorch(torch.tensor(X_plot)).detach().numpy()
+    plt.plot(X_plot, y_pred_plot)
+    plt.savefig(f'img/adv_attacks_after.pdf')
     plt.show()

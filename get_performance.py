@@ -8,7 +8,7 @@ from sklearn.model_selection import GridSearchCV
 import os
 from pgd import PGD
 import torch
-from pgd_attack_krr import KernelRidgeModel
+from pgd_attack_krr import KernelRidgeModel, fine_tunne_advtrain
 
 
 def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--setting', choices=['regr',], default='regr')
+    parser.add_argument('--setting', choices=['regr', ], default='regr')
     parser.add_argument('--dont_plot', action='store_true', help='Enable plotting')
     parser.add_argument('--dont_show', action='store_true', help='dont show plot, but maybe save it')
     parser.add_argument('--load_data', action='store_true', help='Enable data loading')
@@ -34,17 +34,17 @@ if __name__ == '__main__':
     parser.add_argument('--figure_dir', type=str, default='img',
                         help='Output figures')
     parser.add_argument('--adv_radius', default=0, help='adversarial radius to evaluate the data')
-    parser.add_argument('--style', type=str, nargs='+',  default=[], help='Style file to be used')
+    parser.add_argument('--style', type=str, nargs='+', default=[], help='Style file to be used')
     parser.add_argument('--dont_plot_figure', action='store_true', help='Plot figure')
     args = parser.parse_args()
 
     adv_radius = float(args.adv_radius)
     if args.setting == 'regr':
-        all_methods = ['akr', 'kr_cv', 'amkl']
+        all_methods = ['akr', 'kr_cv', 'amkl', 'adv-inp']
         datasets = [polution, us_crime, wine, diabetes, abalone]
         tp = 'regression'
         metrics_names = ['r2_score', 'mape']
-        metrics_of_interest = [r2_score,mean_absolute_percentage_error]
+        metrics_of_interest = [r2_score, mean_absolute_percentage_error]
         metric_show = 'mape'
         ord = np.inf
         ylabel = 'MAPE'
@@ -61,14 +61,14 @@ if __name__ == '__main__':
         columns_names = ['dset', 'method', 'adv', 'p', 'radius'] + metrics_names + \
                         [nn + q for nn in metrics_names for q in ['q1', 'q3']] + \
                         ['exec_time']
-        
+
         if not os.path.exists(os.path.dirname(args.csv_file)):
             os.makedirs(os.path.dirname(args.csv_file))
 
         if not os.path.exists(args.figure_dir):
             os.makedirs(args.figure_dir)
-        
-        all_results= []
+
+        all_results = []
         for dset in datasets:
             X_train, X_test, y_train, y_test = dset()
             for method in all_methods:
@@ -79,36 +79,49 @@ if __name__ == '__main__':
                 if method == 'akr':
                     est = AdvKernelTrain(verbose=False, kernel=kernel, **kernel_params)
                     est = GridSearchCV(est, param_grid={"gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
-                elif method == 'kr_cv':
-                    est = KernelRidge(kernel='rbf', **kernel_params)  # Needs to have rbf here, otherwise cross-validation will not work, because kernel ridge already define parameter
-                    est = GridSearchCV(est, param_grid={"alpha":[10, 1e0, 0.1, 1e-2, 1e-3] , "gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
+                elif method in ['kr_cv', 'adv-inp']:
+                    est = KernelRidge(kernel='rbf',
+                                      **kernel_params)  # Needs to have rbf here, otherwise cross-validation will not work, because kernel ridge already define parameter
+                    est = GridSearchCV(est, param_grid={"alpha": [10, 1e0, 0.1, 1e-2, 1e-3],
+                                                        "gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
                 elif method == 'amkl':
-                    est = AdvMultipleKernelTrain(verbose=False, kernel=5 * ['rbf'], kernel_params=[{'gamma': 10}, {'gamma': 1e0}, {'gamma': 0.1}, {'gamma': 1e-2}, {'gamma': 1e-3}])
+                    est = AdvMultipleKernelTrain(verbose=False, kernel=5 * ['rbf'],
+                                                 kernel_params=[{'gamma': 10}, {'gamma': 1e0}, {'gamma': 0.1},
+                                                                {'gamma': 1e-2}, {'gamma': 1e-3}])
                 estimator = est.fit(X_train, y_train)
                 y_pred = estimator.predict(X_test)
+
+                if method == 'adv-inp':
+                    model = KernelRidgeModel.from_sklearn('rbf', estimator)
+                    model = fine_tunne_advtrain(model, X_train, y_train, nepochs=30)
+                    y_pred = model(torch.tensor(X_test))
 
                 if isinstance(y_pred, torch.Tensor):
                     y_pred = y_pred.detach().numpy()
 
                 exec_time = time.time() - start_time
-                
+
                 ms = [dset.__name__, method, 'False', 0, 0]
                 ms += [m(y_test, y_pred) for m in metrics_of_interest]
                 for m in metrics_of_interest:
                     ms += bootstrap(y_test, y_pred, m, [0.25, 0.75])
                 ms += [exec_time]
                 all_results.append(ms)
-                
+
                 if method != 'amkl':
-                    model = KernelRidgeModel.from_sklearn('rbf', estimator)
-                    params = [{'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad/50, 'nsteps': 100} for rad in [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]]
-                    params += [{'loss_fn': torch.nn.MSELoss(), 'p': np.inf, 'adv_radius': rad, 'step_size': rad/10, 'nsteps': 100} for rad in [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]]
+                    if method in ['akr', 'kr_cv']:
+                        model = KernelRidgeModel.from_sklearn('rbf', estimator)
+                    params = [
+                        {'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad / 50, 'nsteps': 100}
+                        for rad in [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]]
+                    params += [{'loss_fn': torch.nn.MSELoss(), 'p': np.inf, 'adv_radius': rad, 'step_size': rad / 10,
+                                'nsteps': 100} for rad in [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10]]
                     for param in params:
                         attack = PGD(model, **param)
                         X_adv = attack(torch.tensor(X_test), torch.tensor(y_test))
                         print(model(torch.tensor(X_test)))
-                        y_pred_adv = estimator.predict(X_adv.detach().numpy())
-                        ms = [dset.__name__, method, 'True', param['p'], param['adv_radius']]     
+                        y_pred_adv = model(X_adv).detach().numpy()
+                        ms = [dset.__name__, method, 'True', param['p'], param['adv_radius']]
                         ms += [m(y_test, y_pred_adv) for m in metrics_of_interest]
                         for m in metrics_of_interest:
                             ms += bootstrap(y_test, y_pred_adv, m, [0.25, 0.75])
@@ -130,11 +143,11 @@ if __name__ == '__main__':
         ddf.index.name = None
         print(ddf.to_latex(columns=[m for m in all_methods], float_format="%.2f"))
 
-
     # Plot figure
     if not args.dont_plot:
         print('Plotting figure')
         from matplotlib import ticker
+
         plt.style.use(args.style)
 
         fig, ax = plt.subplots()
@@ -153,9 +166,9 @@ if __name__ == '__main__':
             ax.bar(bar_positions, y, bar_width, yerr=yerr, label=methods_name[i])
 
         names = [d.__name__.replace('_', ' ').capitalize() for d in datasets]
-        plt.xticks(range(len(datasets)),names)
+        plt.xticks(range(len(datasets)), names)
         plt.ylabel(ylabel)
-        plt.legend( title='', bbox_to_anchor=(0.55, 0.75))
+        plt.legend(title='', bbox_to_anchor=(0.55, 0.75))
 
         import matplotlib as mpl
 
