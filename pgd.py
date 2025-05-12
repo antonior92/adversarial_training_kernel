@@ -53,7 +53,7 @@ class PGD(nn.Module):
             # flatten all but the batch dimension; check if norms are ok
             flat = grad.view(grad.shape[0], -1)
             norms = torch.norm(flat, self.p, dim=1)
-            tol = 1e-1
+            tol = 1e-6
             ok = (norms < tol) | (torch.abs(norms - 1.0) < tol)
             assert torch.all(ok), f"L_p norms not approx. 0/1: {norms}"
 
@@ -78,23 +78,34 @@ class PGD(nn.Module):
 
         return X_adv
 
-    def normalize_(self, grad):
+    def normalize_(self, grad, eps=1e-6):
+        flat = grad.view(grad.size(0), -1)  # (N, P)
+
+        # check for zero gradients
+        gnorm = flat.norm(p=self.p, dim=1)  # (N,)
+        mask = gnorm > eps  # (N,)
+        if not mask.any():
+            return torch.zeros_like(grad)
+
+        # normalize non-zero gradients
+        d = torch.zeros_like(flat)  # (N, P)
         if self.p == torch.inf:
-            return grad.sign()
-        if self.p == 1:  # put all mass in the direction of the maximum absolute value
-            flat = grad.view(grad.shape[0], -1)
+            d[mask] = flat[mask].sign()
+
+        elif self.p == 1:  # put all mass in the direction of the maximum absolute value
             # find index of maximum absolute value for each sample
-            idx = flat.abs().argmax(dim=1)
-            out = torch.zeros_like(grad)
+            idx = flat[mask].abs().argmax(dim=1, keepdim=True)  # (M,1)
             # scatter 1.0 at the index of maximum absolute value; everything else is 0
-            out.view(grad.shape[0], -1).scatter_(1, idx.unsqueeze(1), 1.0)
-            return out * grad.sign()
-        # 1 < p < inf
-        flat = grad.view(grad.shape[0], -1)
-        power = 1.0 / (self.p - 1)
-        norm_q = torch.norm(flat, p=self.q, dim=1, keepdim=True) + 1e-12
-        # d = sign(g) * |g|^{1/(p-1)} / ||g||_{q}^{1/(p-1)}
-        d = flat.sign() * flat.abs().pow(power) / norm_q.pow(power)
+            d[mask].scatter_(1, idx, flat[mask, idx].sign())
+
+        else:  # 1 < p < inf
+            power = 1.0 / (self.p - 1)
+            norm_q = flat[mask].norm(p=self.q, dim=1, keepdim=True).clamp_min(eps)
+            # d = sign(g) * |g|^{1/(p-1)} / ||g||_{q}^{1/(p-1)}
+            d[mask] = (
+                flat[mask].sign() * flat[mask].abs().pow(power) / norm_q.pow(power)
+            )
+
         return d.view_as(grad)
 
     def project_(self, X, X_adv):
