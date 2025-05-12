@@ -104,12 +104,17 @@ if __name__ == '__main__':
                 
                 if method != 'amkl':
                     model = estimator.predict if method == 'laff' else KernelRidgeModel.from_sklearn('rbf', estimator)
-                    params = [{'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 1, 'adv_radius': 8 / 255, 'step_size': 2 / 255, 'nsteps': 10},
-                               {'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': 8 / 255, 'step_size': 2 / 255, 'nsteps': 10},
-                               {'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': torch.inf, 'adv_radius': 8 / 255, 'step_size': 2 / 255, 'nsteps': 10}]
+                    params = [{'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad/10, 'nsteps': 20} for rad in [0.001, 0.005, 0.01, 0.05, 0.1]] 
+                    params += [{'model': model, 'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad/10, 'nsteps': 20} for rad in [0.001, 0.005, 0.01, 0.05, 0.1]]
                     for param in params:
-                        attack = PGD(**param)
-                        y_pred_adv = estimator.predict(attack(torch.tensor(X_test, requires_grad=True), torch.tensor(y_test)).detach().numpy())   
+                        if method == 'laff':
+                            pass
+                            #attack = estimator.create_attack()
+                            #X_adv = attack(torch.tensor(X_test, requires_grad=True), torch.tensor(y_test))
+                            #y_pred_adv = estimator.predict(X_adv).detach().numpy()
+                        else:
+                            attack = PGD(**param)
+                            y_pred_adv = estimator.predict(attack(torch.tensor(X_test, requires_grad=True), torch.tensor(y_test)).detach().numpy())   
                         ms = [dset.__name__, method, 'True', param['p'], param['adv_radius']]     
                         ms += [m(y_test, y_pred_adv) for m in metrics_of_interest]
                         for m in metrics_of_interest:

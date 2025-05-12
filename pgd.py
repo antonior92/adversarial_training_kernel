@@ -35,7 +35,7 @@ class PGD(nn.Module):
         self.q = 1 if p == torch.inf else (torch.inf if p == 1 else p / (p - 1))
 
     def forward(self, X, y, debug=False):
-        X_adv = X.detach().clone().requires_grad_(True)
+        X_adv = X.clone().requires_grad_(True)
         if debug:
             advs, losses = [], []
 

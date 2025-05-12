@@ -321,11 +321,24 @@ class LinearAdvFourierFeatures(BaseEstimator, RegressorMixin):
             step_size=self.step_size,
             nsteps=self.nsteps,
         )
-
+        
         self.laff_adversarial_training(
             Z, torch.tensor(y, dtype=torch.float32), verbose=self.verbose
         )
         return self
+    
+    def create_attack(self):
+        attack = PGD(
+            model=self.lin_net,
+            loss_fn=self.loss_fn,
+            p=self.p,
+            adv_radius=self.adv_radius,
+            step_size=self.step_size,
+            nsteps=self.nsteps,
+        )
+
+        return attack
+    
 
     def laff_adversarial_training(self, X, y, verbose=False):
         self.lin_net.train()
