@@ -25,7 +25,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--setting', choices=['regr', ], default='regr')
+    parser.add_argument('--setting', choices=['regr', 'regr_short' ], default='regr')
     parser.add_argument('--dont_plot', action='store_true', help='Enable plotting')
     parser.add_argument('--dont_show', action='store_true', help='dont show plot, but maybe save it')
     parser.add_argument('--load_data', action='store_true', help='Enable data loading')
@@ -40,8 +40,19 @@ if __name__ == '__main__':
 
     adv_radius = float(args.adv_radius)
     if args.setting == 'regr':
-        all_methods = ['akr', 'kr_cv', 'amkl', 'adv-inp']
-        datasets = [polution, us_crime, wine, diabetes, abalone]
+        all_methods = ['akr', 'kr_cv', 'amkl']
+        datasets = [polution, diabetes, us_crime, wine, abalone]
+        tp = 'regression'
+        metrics_names = ['r2_score', 'mape']
+        metrics_of_interest = [r2_score, mean_absolute_percentage_error]
+        metric_show = 'mape'
+        ord = np.inf
+        ylabel = 'MAPE'
+        methods_to_show = ['akr', 'kr_cv']
+        methods_name = ['Adv Kern', 'Kernel Ridge']
+    elif args.setting == 'regr_short':
+        all_methods = ['akr', 'kr_cv', 'amkl', 'adv-inp-2', 'adv-inp-inf']
+        datasets = [polution,]
         tp = 'regression'
         metrics_names = ['r2_score', 'mape']
         metrics_of_interest = [r2_score, mean_absolute_percentage_error]
@@ -79,7 +90,7 @@ if __name__ == '__main__':
                 if method == 'akr':
                     est = AdvKernelTrain(verbose=False, kernel=kernel, **kernel_params)
                     est = GridSearchCV(est, param_grid={"gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
-                elif method in ['kr_cv', 'adv-inp']:
+                elif method in ['kr_cv', 'adv-inp-2', 'adv-inp-inf']:
                     est = KernelRidge(kernel='rbf',
                                       **kernel_params)  # Needs to have rbf here, otherwise cross-validation will not work, because kernel ridge already define parameter
                     est = GridSearchCV(est, param_grid={"alpha": [10, 1e0, 0.1, 1e-2, 1e-3],
@@ -91,9 +102,13 @@ if __name__ == '__main__':
                 estimator = est.fit(X_train, y_train)
                 y_pred = estimator.predict(X_test)
 
-                if method == 'adv-inp':
+                if method == 'adv-inp-2':
                     model = KernelRidgeModel.from_sklearn('rbf', estimator)
-                    model = fine_tunne_advtrain(model, X_train, y_train, nepochs=30)
+                    model = fine_tunne_advtrain(model, X_train, y_train, p=2, nepochs=200)
+                    y_pred = model(torch.tensor(X_test))
+                elif method == 'adv-inp-inf':
+                    model = KernelRidgeModel.from_sklearn('rbf', estimator)
+                    model = fine_tunne_advtrain(model, X_train, y_train, p=np.inf, nepochs=200)
                     y_pred = model(torch.tensor(X_test))
 
                 if isinstance(y_pred, torch.Tensor):

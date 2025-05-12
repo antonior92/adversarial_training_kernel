@@ -78,6 +78,24 @@ python styles/print_mytable.py
 ##################################
 
 # Now running on hyperion: seff
+python get_performance.py --dont_plot_figure --csv_file "out/performance_regr_short.csv"  # now running on hyperion
+python get_performance.py --load_data --csv_file "out/performance_regr.csv" --style styles/vr.mpl
+
+
+##################################
+#             Fig X              #
+#      Adv_training       #
+##################################
+python get_performance.py --dont_plot_figure --setting 'regr_short' --csv_file "out/performance_regr_short.csv"
+
+
+
+##################################
+#             Fig X              #
+#      Generate table of adversarial attacks      #
+##################################
+
+# Now running on hyperion: seff
 python get_performance.py --dont_plot_figure  # now running on hyperion
 python get_performance.py --load_data --csv_file "out/performance_regr.csv" --style styles/vr.mpl
 
