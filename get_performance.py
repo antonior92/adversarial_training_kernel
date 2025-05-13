@@ -45,14 +45,14 @@ if __name__ == '__main__':
         tp = 'regression'
         metrics_names = ['r2_score', 'mape']
         metrics_of_interest = [r2_score, mean_absolute_percentage_error]
-        metric_show = 'mape'
+        metric_show = 'r2_score'
         ord = np.inf
-        ylabel = 'MAPE'
+        ylabel = 'R2-score'
         methods_to_show = ['akr', 'kr_cv']
         methods_name = ['Adv Kern', 'Kernel Ridge']
     elif args.setting == 'regr_short':
         all_methods = ['akr', 'kr_cv', 'amkl', 'adv-inp-2', 'adv-inp-inf']
-        datasets = [polution,]
+        datasets = [polution, diabetes, us_crime, wine, abalone]
         tp = 'regression'
         metrics_names = ['r2_score', 'mape']
         metrics_of_interest = [r2_score, mean_absolute_percentage_error]
