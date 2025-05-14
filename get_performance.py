@@ -188,20 +188,12 @@ if __name__ == '__main__':
         import matplotlib as mpl
 
         ax = plt.gca()
-        major_names = [n for i, n in enumerate(names) if i % 2 == 0]
-        minor_names = [n for i, n in enumerate(names) if i % 2 == 1]
-        major_loc = [i for i, d in enumerate(datasets) if i % 2 == 0]
-        minor_loc = [i for i, d in enumerate(datasets) if i % 2 == 1]
+        major_names = [n for i, n in enumerate(names)]
+        major_loc = [i for i, d in enumerate(datasets)]
         ax.xaxis.set_major_locator(ticker.FixedLocator(major_loc))
-        ax.xaxis.set_minor_locator(ticker.FixedLocator(minor_loc))
         ax.xaxis.set_minor_formatter(ticker.FixedFormatter(major_names))
-        ax.xaxis.set_minor_formatter(ticker.FixedFormatter(minor_names))
-        ax.tick_params(axis='x', which='minor', length=-200)
         ax.tick_params(axis='x', which='both', color='lightgrey')
         ax.autoscale(enable=True, axis='x', tight=True)
-        mpl.rcParams['xtick.major.pad'] = 12
-        mpl.rcParams['xtick.minor.pad'] = 32
-        mpl.rcParams['xtick.direction'] = 'in'
 
         plt.savefig(f'{args.figure_dir}/performace_{tp}.pdf')
         plt.show()
