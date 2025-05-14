@@ -49,7 +49,6 @@ def get_curve(rng, n, curve, std_noise=0.2):
 valid_kernels = ['rbf', 'linear', 'matern1-2', 'matern3-2', 'matern5-2']
 
 def get_kernel(kernel, usetorch=False):
-    default_gamma = 12
     if usetorch:
         import torch
         myexp = torch.exp
@@ -92,23 +91,27 @@ def get_kernel(kernel, usetorch=False):
             return S
 
     if kernel == 'rbf':
+        default_gamma = 20
         def kernel(x, y, gamma=default_gamma):
             return myexp(-sq_dist(x, y) * gamma)
         return kernel, {'gamma': default_gamma}
     elif kernel == 'linear':
         def kernel(x, y):
             return x @ y.T
-        return kernel, {'gamma': default_gamma}
+        return kernel, {}
     elif kernel == 'matern1-2':
+        default_gamma = 10
         def kernel(x, y, gamma=default_gamma):
             return myexp(-mysqrt(sq_dist(x, y)) * gamma)
         return kernel, {'gamma': default_gamma}
     elif kernel == 'matern3-2':
+        default_gamma = 10
         def kernel(x, y, gamma=default_gamma):
             temp = mysqrt(sq_dist(x, y))
             return (1 + mysqrt(3) * temp * gamma) * myexp(-mysqrt(3) *temp * gamma)
         return kernel, {'gamma': default_gamma}
     elif kernel == 'matern5-2':
+        default_gamma = 10
         def kernel(x, y, gamma=default_gamma):
             temp = mysqrt(sq_dist(x, y))
             return (1 + mysqrt(5) * temp * gamma + 5 * temp**2 * gamma ** 2 / 3) * myexp(- mysqrt(5) * temp * gamma)

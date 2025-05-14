@@ -17,7 +17,6 @@ done
 #############################################
 mkdir -p out/snr
 python error_vs_snr.py --kernel 'linear' --dataset 'linear'  --n_reps 20 --n_points 20 --dont_plot_figure --csv_file "out/snr/linear.csv"
-
 python error_vs_snr.py --kernel 'linear' --load  --csv_file "out/snr/linear.csv" --save_fig "img/snr/linear.pdf" --style styles/vr.mpl
 
 
@@ -47,26 +46,22 @@ done
 mkdir -p out
 mkdir -p out/error_vs_sample_size
 
-for method in 'kr_cv' 'akr';
+for kernel in 'rbf' 'matern1-2' 'matern3-2'  'matern5-2';
 do
-  for kernel in 'rbf' 'matern1-2'  'matern5-2';
-  do
-    python error_vs_sample_size.py --kernel $kernel --estimate $method --n_points 10 --n_rep 5 --csv_file "out/error_vs_sample_size/$kernel--$method.csv"
-  done
+  echo "Running $kernel"
+  python error_vs_sample_size.py --kernel $kernel --n_points 10 --n_rep 5 --csv_file "out/error_vs_sample_size/$kernel--akr.csv"  "out/error_vs_sample_size/$kernel--kr_cv.csv" --max_log_range 3
 done
 
 
 mkdir -p img
 mkdir -p img/error_vs_sample_size
 rm out/error_vs_sample_size.csv
-for method in 'kr_cv' 'akr';
+
+for kernel in 'rbf' 'matern1-2'  'matern5-2';
 do
-  for kernel in 'rbf' 'matern1-2'  'matern5-2';
-  do
-    python error_vs_sample_size.py  --kernel $kernel --estimate $method --load --csv_file "out/error_vs_sample_size/$kernel--$method.csv" \
-           --save_fig "img/error_vs_sample_size/$kernel--$method.png"  --style styles/vr.mpl \
-           --save_summary "out/error_vs_sample_size.csv"
-  done
+  python error_vs_sample_size.py  --kernel $kernel --load --csv_file "out/error_vs_sample_size/$kernel--akr.csv"  "out/error_vs_sample_size/$kernel--kr_cv.csv" \
+         --save_fig "img/error_vs_sample_size/$kernel.png"  --style styles/vr.mpl \
+         --save_summary "out/error_vs_sample_size.csv"
 done
 
 python styles/print_mytable.py
@@ -79,7 +74,7 @@ python styles/print_mytable.py
 
 # Now running on hyperion: seff
 python get_performance.py --dont_plot_figure --csv_file "out/performance_regr_short.csv"  # now running on hyperion
-python get_performance.py --load_data --csv_file "out/performance_regr.csv" --style styles/vr.mpl
+python get_performance.py --load_data --csv_file "out/performance_regr.csv" --style styles/fig2.mpl
 
 
 ##################################
