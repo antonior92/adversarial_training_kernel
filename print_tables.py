@@ -5,20 +5,46 @@ import re
 data = 'out/performance_regr_short.csv'
 df = pd.read_csv(data)
 
-datasets = ['polution', 'diabetes', 'us_crime']
-p1, p2 = 2.0, np.inf
-delta1, delta2 = 0.01, 0.05
+datasets = ['polution', 'diabetes', 'us_crime', 'wine', 'abalone']
+p1, p2, p3 = 0.0, 2.0, np.inf
+delta1, delta2, delta3 = 0.0, 0.05, 0.5
+
+# Define the desired order of methods
+method_order = [
+    'Adv. Kern (ours)',
+    'Ridge CV',
+    r'Adv. Input ($\ell_2$)',
+    r'Adv. Input ($\ell_{\inf}$)',
+]
 
 for dset in datasets:
     dff = df[df['dset'] == dset].copy()
-    dff.loc[dff['method'] == 'akr', 'method'] = 'Adv Kern'
+    dff.loc[dff['method'] == 'akr', 'method'] = 'Adv. Kern (ours)'
     dff.loc[dff['method'] == 'kr_cv', 'method'] = 'Ridge CV'
+    dff.loc[dff['method'] == 'adv-inp-2', 'method'] = r'Adv. Input ($\ell_2$)'
+    dff.loc[dff['method'] == 'adv-inp-inf', 'method'] = r'Adv. Input ($\ell_{\inf}$)'
 
     keep = ['method', 'p', 'radius', 'r2_score']
     dff = dff.iloc[:, 1:][keep]
 
-    dff = dff[dff['p'].isin([p1, p2])]
-    dff = dff[dff['radius'].isin([delta1, delta2])]
+    dff = dff[dff['p'].isin([p1, p2, p3])]
+    dff = dff[dff['radius'].isin([delta1, delta2, delta3])]
+
+    dff = dff[dff['method'] != 'amkl']  # filter out amkl
+
+    # Convert 'method' to categorical to enforce order
+    dff['method'] = pd.Categorical(dff['method'], categories=method_order, ordered=True)
+    dff = dff.dropna(subset=['method'])  # Drop rows with methods not in method_order
+
+    # Duplicate rows where p == 0, setting p to 2 and np.inf for the duplicates
+    p_zero_rows = dff[dff['p'] == 0].copy()
+    p_two_rows = p_zero_rows.copy()
+    p_two_rows['p'] = 2.0
+    p_inf_rows = p_zero_rows.copy()
+    p_inf_rows['p'] = np.inf
+
+    dff = pd.concat([dff, p_two_rows, p_inf_rows], ignore_index=True)
+    dff = dff[dff['p'] != 0]  # remove rows where p == 0
 
     # reshape so columns are (p, radius) and the cell value is R^2
     pivot = (
