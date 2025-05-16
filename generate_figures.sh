@@ -4,7 +4,7 @@
 ##################################
 
 mkdir -p img/1d_plots
-for kernel in 'rbf' 'matern1-2'  'matern5-2';
+for kernel in 'rbf' 'matern1-2' 'matern3-2'  'matern5-2';
 do
   for curve in 2 3;
   do
@@ -57,10 +57,10 @@ mkdir -p img
 mkdir -p img/error_vs_sample_size
 rm out/error_vs_sample_size.csv
 
-for kernel in 'rbf' 'matern1-2'  'matern5-2';
+for kernel in 'matern1-2' 'matern3-2' 'matern5-2' 'rbf'  ;
 do
   python error_vs_sample_size.py  --kernel $kernel --load --csv_file "out/error_vs_sample_size/$kernel--akr.csv"  "out/error_vs_sample_size/$kernel--kr_cv.csv" \
-         --save_fig "img/error_vs_sample_size/$kernel.png"  --style styles/vr.mpl \
+         --save_fig "img/error_vs_sample_size/$kernel.pdf"  --style styles/vr.mpl \
          --save_summary "out/error_vs_sample_size.csv"
 done
 

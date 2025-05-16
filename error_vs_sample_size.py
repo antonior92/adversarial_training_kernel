@@ -105,8 +105,8 @@ if __name__ == '__main__':
                 print(f'Test MSE  n^{t1:.2f}')
 
                 # Save summary
-                #s = pd.DataFrame({ 'method': args.estimate, 'kernel': [args.kernel], 'curve': [label[curve]], 'rate': [t1]})
-                #sss = pd.concat([sss, s], ignore_index=True)
+                s = pd.DataFrame({ 'method': args.estimate[ii], 'kernel': [args.kernel], 'curve': [label[curve]], 'rate': [t1]})
+                sss = pd.concat([sss, s], ignore_index=True)
 
         plt.title('Kernel: ' + args.kernel.capitalize())
         plt.legend()

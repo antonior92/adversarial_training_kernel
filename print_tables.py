@@ -30,17 +30,12 @@ if __name__ == '__main__':
         dff.loc[dff['method'] == 'akr', 'method'] = 'Adv Kern'
         dff.loc[dff['method'] == 'kr_cv', 'method'] = 'Ridge Kernel'
 
+        keep = ['method', 'p', 'radius', 'r2_score']
+        dff = dff.iloc[:, 1:][keep]
 
         #dff = dff
         #dff = dff[dff['p'].isin(ps)]
         #dff = dff[dff['radius'].isin(deltas)]
-
-        dff['formatted'] = dff.apply(
-            lambda row: f"{row['r2_score']:.2f} ({row['r2_scoreq1']:.2f}–{row['r2_scoreq3']:.2f})",
-            axis=1
-        )
-        keep = ['method', 'p', 'radius', 'formatted']
-        dff = dff.iloc[:, 1:][keep]
 
         dff = dff[dff.apply(lambda row: (row['p'], row['radius']) in valid_pairs, axis=1)]
 
@@ -51,7 +46,7 @@ if __name__ == '__main__':
             .pivot(
                 index='method',  # rows
                 columns=['p', 'radius'],  # two-level header (p on top, delta underneath)
-                values='formatted',
+                values='r2_score',
             )  # cell entries
             .sort_index(axis=1, level=[0, 1])
         )
