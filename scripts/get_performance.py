@@ -1,4 +1,3 @@
-from datasets import *
 import time
 from sklearn.metrics import (r2_score, mean_absolute_percentage_error)
 from advkern.kernels import get_kernel
@@ -10,6 +9,68 @@ import os
 from advkern.pgd import PGD
 import torch
 from others.pgd_attack_krr import KernelRidgeModel, fine_tunne_advtrain
+
+import sklearn.model_selection
+from sklearn.datasets import load_diabetes
+from ucimlrepo import fetch_ucirepo
+import numpy as np
+import pandas as pd
+import os
+from sklearn.datasets import fetch_openml
+
+def normalize(X_train, X_test, y_train, y_test):
+    X_mean = X_train.mean(axis=0)
+    X_std = X_train.std(axis=0)
+    X_train = (X_train - X_mean) / X_std
+    X_test = (X_test - X_mean) / X_std
+
+    y_mean = y_train.mean(axis=0)
+    y_std = y_train.std(axis=0)
+    y_train = (y_train - y_mean) / y_std
+    y_test = (y_test - y_mean) / y_std
+
+    return X_train, X_test, y_train, y_test
+
+
+def diabetes():
+    X, y = load_diabetes(return_X_y=True)
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=50, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+def wine():
+    dset = fetch_ucirepo(name="Wine Quality")
+    X = dset.data.features.values
+    y = dset.data.targets.values.flatten()
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+def abalone():
+    dset = fetch_ucirepo(name="Abalone")
+    F = dset.data.features
+    F = F.assign(Sex=(F['Sex'] == 'M').values.astype(float))
+    X = F.values
+    y = dset.data.targets.values.flatten()
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+
+
+def polution():
+    dset = fetch_openml(data_id=542)
+    X = dset['data'].values
+    y = dset['target'].values
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+
+def us_crime():
+    dset = fetch_openml(data_id=42730)
+    X = dset['data'].fillna(method='backfill').fillna(method='pad').values
+    y = dset['target'].values
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
 
 
 def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):

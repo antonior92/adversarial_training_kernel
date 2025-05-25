@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from advkern.pgd import PGD
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import Ridge
-from others.randomfeatures import RBFRandomFourierFeatures
+from scripts.extra.randomfeatures import RBFRandomFourierFeatures
 from advkern.multiple_kernel_advtrain import LinearNet
 
 

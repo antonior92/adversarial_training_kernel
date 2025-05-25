@@ -68,41 +68,10 @@ python styles/print_mytable.py
 
 
 ##################################
-#             Fig X              #
+#             Fig 2              #
 #      Compute performance        #
 ##################################
 
-# Now running on hyperion: seff
 python get_performance.py --dont_plot_figure --csv_file "out/performance_regr_short.csv"  # now running on hyperion
 python get_performance.py --load_data --csv_file "out/performance_regr.csv" --style styles/fig2.mpl
-
-
-##################################
-#             Fig X              #
-#      Adv_training       #
-##################################
-python get_performance.py --dont_plot_figure --setting 'regr_short' --csv_file "out/performance_regr_short.csv"
-
-
-
-##################################
-#             Fig X              #
-#      Generate table of adversarial attacks      #
-##################################
-
-# Now running on hyperion: seff
-python get_performance.py --dont_plot_figure  # now running on hyperion
-python get_performance.py --load_data --csv_file "out/performance_regr.csv" --style styles/vr.mpl
-
-
-##############################
-# Fig X error vs sample size #
-##############################
-# now running on hyperion: seff
-for method in 'akr' 'kr_cv';
-do
-  python error_vs_sample_size_linear.py  --csv_file "out/error_vs_sample_size/linear--$method.csv" --dont_plot_figure --estimate $method --max_log_range 2 --n_reps 10
-done;
-
-python error_vs_sample_size_linear.py  --csv_file "out/error_vs_sample_size/linear--akr.csv" --load
 
