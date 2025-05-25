@@ -2,11 +2,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
-from pgd import PGD
+from advkern.pgd import PGD
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.linear_model import Ridge
-from randomfeatures import RBFRandomFourierFeatures
-from kernel_advtrain import LinearNet
+from scripts.extra.randomfeatures import RBFRandomFourierFeatures
+from advkern.multiple_kernel_advtrain import LinearNet
 
 
 def f(x):

@@ -1,14 +1,76 @@
-from datasets import *
 import time
-from sklearn.metrics import (r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error)
-from onedim_curve_fitting import get_kernel
-from kernel_advtrain import AdvKernelTrain, AdvMultipleKernelTrain, LinearAdvFourierFeatures
+from sklearn.metrics import (r2_score, mean_absolute_percentage_error)
+from advkern.kernels import get_kernel
+from advkern.kernel_advtrain import AdvKernelTrain
+from advkern.multiple_kernel_advtrain import AdvMultipleKernelTrain
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
 import os
-from pgd import PGD
+from advkern.pgd import PGD
 import torch
-from pgd_attack_krr import KernelRidgeModel, fine_tunne_advtrain
+from others.pgd_attack_krr import KernelRidgeModel, fine_tunne_advtrain
+
+import sklearn.model_selection
+from sklearn.datasets import load_diabetes
+from ucimlrepo import fetch_ucirepo
+import numpy as np
+import pandas as pd
+import os
+from sklearn.datasets import fetch_openml
+
+def normalize(X_train, X_test, y_train, y_test):
+    X_mean = X_train.mean(axis=0)
+    X_std = X_train.std(axis=0)
+    X_train = (X_train - X_mean) / X_std
+    X_test = (X_test - X_mean) / X_std
+
+    y_mean = y_train.mean(axis=0)
+    y_std = y_train.std(axis=0)
+    y_train = (y_train - y_mean) / y_std
+    y_test = (y_test - y_mean) / y_std
+
+    return X_train, X_test, y_train, y_test
+
+
+def diabetes():
+    X, y = load_diabetes(return_X_y=True)
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=50, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+def wine():
+    dset = fetch_ucirepo(name="Wine Quality")
+    X = dset.data.features.values
+    y = dset.data.targets.values.flatten()
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+def abalone():
+    dset = fetch_ucirepo(name="Abalone")
+    F = dset.data.features
+    F = F.assign(Sex=(F['Sex'] == 'M').values.astype(float))
+    X = F.values
+    y = dset.data.targets.values.flatten()
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+
+
+def polution():
+    dset = fetch_openml(data_id=542)
+    X = dset['data'].values
+    y = dset['target'].values
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
+
+
+def us_crime():
+    dset = fetch_openml(data_id=42730)
+    X = dset['data'].fillna(method='backfill').fillna(method='pad').values
+    y = dset['target'].values
+
+    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.3, random_state=0)
+    return normalize(X_train, X_test, y_train, y_test)
 
 
 def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):
@@ -21,7 +83,6 @@ def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    import seaborn as sns
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -185,23 +246,13 @@ if __name__ == '__main__':
         plt.ylabel(ylabel)
         plt.legend(title='', bbox_to_anchor=(0.55, 0.75))
 
-        import matplotlib as mpl
-
         ax = plt.gca()
-        major_names = [n for i, n in enumerate(names) if i % 2 == 0]
-        minor_names = [n for i, n in enumerate(names) if i % 2 == 1]
-        major_loc = [i for i, d in enumerate(datasets) if i % 2 == 0]
-        minor_loc = [i for i, d in enumerate(datasets) if i % 2 == 1]
+        major_names = [n for i, n in enumerate(names)]
+        major_loc = [i for i, d in enumerate(datasets)]
         ax.xaxis.set_major_locator(ticker.FixedLocator(major_loc))
-        ax.xaxis.set_minor_locator(ticker.FixedLocator(minor_loc))
         ax.xaxis.set_minor_formatter(ticker.FixedFormatter(major_names))
-        ax.xaxis.set_minor_formatter(ticker.FixedFormatter(minor_names))
-        ax.tick_params(axis='x', which='minor', length=-200)
         ax.tick_params(axis='x', which='both', color='lightgrey')
         ax.autoscale(enable=True, axis='x', tight=True)
-        mpl.rcParams['xtick.major.pad'] = 12
-        mpl.rcParams['xtick.minor.pad'] = 32
-        mpl.rcParams['xtick.direction'] = 'in'
 
         plt.savefig(f'{args.figure_dir}/performace_{tp}.pdf')
         plt.show()

@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
-from numpy.ma.core import less_equal
 
-from onedim_curve_fitting import get_curve, get_kernel, get_estimate, valid_kernels
+from scripts.onedim_curve_fitting import get_estimate
+from advkern.data import get_curve
+from advkern.kernels import valid_kernels, get_kernel
+
 
 def get_quantiles(xaxis, r, quantileslower=0.25, quantilesupper=0.75):
     new_xaxis, inverse, counts = np.unique(xaxis, return_inverse=True, return_counts=True)
