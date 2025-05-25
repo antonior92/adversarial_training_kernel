@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from pgd import PGD
+from advkern.pgd import PGD
 import matplotlib.pyplot as plt
 
 

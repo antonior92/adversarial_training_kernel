@@ -1,8 +1,7 @@
 # Import
-import numpy as np
 import pytest
-from kernel_advtrain import kernel_adversarial_training, mkl_adversarial_training, AdvKernelTrain, \
-    AdvMultipleKernelTrain
+from advkern.kernel_advtrain import kernel_adversarial_training, AdvKernelTrain
+from advkern.multiple_kernel_advtrain import mkl_adversarial_training, AdvMultipleKernelTrain
 import cvxpy as cp
 import numpy as np
 

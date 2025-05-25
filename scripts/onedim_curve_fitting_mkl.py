@@ -1,5 +1,5 @@
 from onedim_curve_fitting import *
-from kernel_advtrain import mkl_adversarial_training
+from advkern.multiple_kernel_advtrain import mkl_adversarial_training
 
 if __name__ == "__main__":
     import argparse

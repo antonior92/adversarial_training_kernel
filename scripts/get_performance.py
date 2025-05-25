@@ -1,14 +1,15 @@
 from datasets import *
 import time
-from sklearn.metrics import (r2_score, mean_squared_error, mean_absolute_error, mean_absolute_percentage_error)
-from onedim_curve_fitting import get_kernel
-from kernel_advtrain import AdvKernelTrain, AdvMultipleKernelTrain, LinearAdvFourierFeatures
+from sklearn.metrics import (r2_score, mean_absolute_percentage_error)
+from advkern.kernels import get_kernel
+from advkern.kernel_advtrain import AdvKernelTrain
+from advkern.multiple_kernel_advtrain import AdvMultipleKernelTrain
 from sklearn.kernel_ridge import KernelRidge
 from sklearn.model_selection import GridSearchCV
 import os
-from pgd import PGD
+from advkern.pgd import PGD
 import torch
-from pgd_attack_krr import KernelRidgeModel, fine_tunne_advtrain
+from others.pgd_attack_krr import KernelRidgeModel, fine_tunne_advtrain
 
 
 def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):
@@ -21,7 +22,6 @@ def bootstrap(y_test, y_pred, metric, quantiles, n_boot=500):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    import seaborn as sns
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -184,8 +184,6 @@ if __name__ == '__main__':
         plt.xticks(range(len(datasets)), names)
         plt.ylabel(ylabel)
         plt.legend(title='', bbox_to_anchor=(0.55, 0.75))
-
-        import matplotlib as mpl
 
         ax = plt.gca()
         major_names = [n for i, n in enumerate(names)]

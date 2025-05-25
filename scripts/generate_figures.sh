@@ -106,10 +106,3 @@ done;
 
 python error_vs_sample_size_linear.py  --csv_file "out/error_vs_sample_size/linear--akr.csv" --load
 
-#######################
-# Plot grant Figuress #
-#######################
-
-python onedim_curve_fitting.py --curve 2 --kernel 'matern5-2'
-python onedim_curve_fitting.py --curve 3 --kernel 'matern5-2'
-python error_vs_sample_size.py  --kernel 'matern5-2' --estimate 'akr' --load --csv_file "out/error_vs_sample_size/matern5-2--akr.csv" --save_fig "img/error_vs_sample_size/matern5-2--akr.png" --style styles/vr.mpl
