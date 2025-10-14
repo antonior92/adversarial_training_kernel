@@ -50,6 +50,7 @@ def kernel_adversarial_training(
     K = pairwise_kernels(X, metric=kernel, **kernel_params)
     if adv_radius is None:
         adv_radius = mfactor * np.sqrt(np.trace(K)) / n_train
+    print(adv_radius)
     for i in range(max_iter):
         # ------- 1. Solve reweighted ridge regression ------
         reg = regul_correction * adv_radius**2

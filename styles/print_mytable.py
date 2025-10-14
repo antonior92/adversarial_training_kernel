@@ -6,15 +6,19 @@ import re
 if __name__ == '__main__':
     data = 'out/performance_regr_short.csv'
     df = pd.read_csv(data)
+    data2 = 'out/performance_rebutall2.csv'
+    df2 = pd.read_csv(data2)
 
-    datasets = ['polution', 'diabetes', 'us_crime', 'wine', 'abalone']
+    df = pd.concat([df, df2], ignore_index=True)
+
+    datasets = ['polution', 'diabetes']
     ps = [0.0, 2.0, np.inf]
 
     # Example: map each p to its allowed deltas
     delta_map = {
         0.0: [0.0,],
-        2: [0.05, 0.1],
-        np.inf: [0.01, 0.05],  # different deltas for p = ∞
+        2: [0.01, 0.1],
+        np.inf: [0.01, 0.1],  # different deltas for p = ∞
     }
 
     # Flatten to get the full list of (p, delta) combinations to keep
@@ -24,12 +28,26 @@ if __name__ == '__main__':
 
     for dset in datasets:
         dff = df[df['dset'] == dset].copy()
-        dff = dff[dff['method'] != 'amkl']
-        dff.loc[dff['method'] == 'adv-inp-inf', 'method'] = 'Adv Input $(\ell_\infty)$'
-        dff.loc[dff['method'] == 'adv-inp-2', 'method'] = 'Adv Input $(\ell_2)$'
-        dff.loc[dff['method'] == 'akr', 'method'] = 'Adv Kern'
-        dff.loc[dff['method'] == 'kr_cv', 'method'] = 'Ridge Kernel'
 
+        dff = dff[dff['method'] != 'amkl']
+
+        # enforce desired order using original codes
+        method_order = ['akr', 'akr-0.01', 'akr-0.1', 'adv-inp-2', 'adv-inp-inf', 'kr_cv']
+
+        # filter and set categorical order
+        dff = dff[dff['method'] != 'amkl']
+        dff['method'] = pd.Categorical(dff['method'], categories=method_order, ordered=True)
+
+        # rename after ordering
+        rename_map = {
+            'akr': 'Adv Kern $\{\|\dx\|_\RKHS\le   \tfrac{1}{\sqrt{n}}\}$',
+            'kr_cv': 'Ridge Kernel',
+            'akr-0.01': 'Adv Kern $\{\|\dx\|_\RKHS \le 0.01\}$',
+            'akr-0.1': 'Adv Kern $\{\|\dx\|_\RKHS \le 0.1\}$',
+            'adv-inp-2': 'Adv Input $\{\|\Delta \\x\|_2 \le 0.1\}$',
+            'adv-inp-inf': 'Adv Input $\{\|\Delta \\x\|_\infty \le 0.1\}$',
+        }
+        dff['method'] = dff['method'].map(rename_map)
 
         #dff = dff
         #dff = dff[dff['p'].isin(ps)]
