@@ -1,3 +1,7 @@
+# Add .. to python path
+export PYTHONPATH=../:$PYTHONPATH
+
+
 ##################################
 # Fig 1 (left, middle) + Fig S.1 #
 #      Generate 1d plots         #
@@ -17,7 +21,7 @@ done
 #############################################
 mkdir -p out/snr
 python error_vs_snr.py --kernel 'linear' --dataset 'linear'  --n_reps 20 --n_points 20 --dont_plot_figure --csv_file "out/snr/linear.csv"
-python error_vs_snr.py --kernel 'linear' --load  --csv_file "out/snr/linear.csv" --save_fig "img/snr/linear.pdf" --style "styles/one_third_page.mpl"
+python error_vs_snr.py --kernel 'linear' --load  --csv_file "../out/snr/linear.csv" --save_fig "../img/snr/linear.pdf" --style "styles/one_third_page.mpl"
 
 
 #############################################
@@ -73,5 +77,11 @@ python styles/print_mytable.py
 ##################################
 
 python get_performance.py --dont_plot_figure --csv_file "out/performance_regr_short.csv"  # now running on hyperion
-python get_performance.py --load_data --csv_file "out/performance_regr.csv" --style styles/wrapfig.mpl
+python get_performance.py --load_data --figure_dir "../img" --csv_file "../out/performance_regr.csv" --style ../styles/wrapfig.mpl
 
+##################################
+#       Rebutal                  #
+#    Performance for fixed size  #
+##################################
+
+python get_performance.py --setting rebuttal --dont_plot_figure --csv_file "../out/performance_rebutall.csv"  # now running on hyperion
