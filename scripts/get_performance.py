@@ -127,9 +127,9 @@ if __name__ == '__main__':
         methods_name = ['Adv Kern', 'Kernel Ridge']
 
     elif args.setting == 'rebuttal':
-        all_methods = ['akr-0.01', 'akr-0.1', 'adv-inp-inf']
+        all_methods = ['akr-0.01', 'akr-0.1']
         adv_radius = 0.1
-        datasets = [polution,]
+        datasets = [polution, diabetes, us_crime, wine, abalone]
         tp = 'regression'
         metrics_names = ['r2_score', 'mape']
         metrics_of_interest = [r2_score, mean_absolute_percentage_error]

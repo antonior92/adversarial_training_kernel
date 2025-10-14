@@ -44,7 +44,7 @@ done
 
 
 ####################################
-# Fig 1 (right) + Fig S.2 + Tab. 3 #
+# Fig 1 (right) + Fig S.2 + Tab. S1 #
 #      Fig  error vs sample size   #
 ####################################
 mkdir -p out
@@ -68,20 +68,24 @@ do
          --save_summary "out/error_vs_sample_size.csv"
 done
 
-python styles/print_mytable.py
+
 
 
 ##################################
-#             Fig 2              #
+#             Fig 2  + Table 3          #
 #      Compute performance        #
 ##################################
 
 python get_performance.py --dont_plot_figure --csv_file "out/performance_regr_short.csv"  # now running on hyperion
 python get_performance.py --load_data --figure_dir "../img" --csv_file "../out/performance_regr.csv" --style ../styles/wrapfig.mpl
 
+python styles/print_mytable.py
+
 ##################################
 #       Rebutal                  #
 #    Performance for fixed size  #
 ##################################
 
-python get_performance.py --setting rebuttal --dont_plot_figure --csv_file "../out/performance_rebutall.csv"  # now running on hyperion
+python get_performance.py --setting rebuttal --dont_plot_figure --csv_file "../out/performance_rebutall.csv"  # now running on hyperion: getp
+
+

@@ -21,4 +21,6 @@ col5 = df[(df['adv']==True) & (df['radius'] == 0.1) & (df['p']==np.inf)]['r2_sco
 
 result_df = pd.DataFrame(np.array([np.array(col1), np.array(col5)]).T, index=index)
 
-print(result_df.round(2).to_markdown())
+if __name__ == '__main__':
+    # Print the DataFrame in markdown format with rounded values
+    print(result_df.round(2).to_markdown())
