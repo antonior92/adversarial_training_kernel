@@ -12,7 +12,7 @@ for kernel in 'rbf' 'matern1-2' 'matern3-2'  'matern5-2';
 do
   for curve in 2 3;
   do
-    python scripts/onedim_curve_fitting.py --kernel $kernel  --curve $curve  --style "styles/one_thid_page.mpl"  --save_fig "img/1d_plots/$kernel-curve$curve.pdf"
+    python scripts/onedim_curve_fitting.py --kernel $kernel  --curve $curve  --style "styles/one_third_page.mpl"  --save_fig "img/1d_plots/$kernel-curve$curve.pdf"
   done
 done
 
