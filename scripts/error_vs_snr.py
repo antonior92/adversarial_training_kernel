@@ -87,7 +87,8 @@ if __name__ == '__main__':
                     mse = np.mean((y_pred - y_test) ** 2)
 
                     print('rep', rep, 'dataset', args.dataset, 'std_noise', std_noise, 'mse', mse, 'method', method)
-                    df = df.append({'method': method, 'dataset': args.dataset, 'rep': rep, 'train_size': args.train_size,'std_noise': std_noise , 'mse': mse}, ignore_index=True)
+                    new_row = pd.DataFrame([{'method': method, 'dataset': args.dataset, 'rep': rep, 'train_size': args.train_size, 'std_noise': std_noise, 'mse': mse}])
+                    df = pd.concat([df, new_row], ignore_index=True)
         df.to_csv(args.csv_file)
 
     if not args.dont_plot_figure:
