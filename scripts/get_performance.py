@@ -8,7 +8,10 @@ from sklearn.model_selection import GridSearchCV
 import os
 from advkern.pgd import PGD
 import torch
-from others.pgd_attack_krr import KernelRidgeModel, fine_tunne_advtrain
+from advkern.np2torch import KernelRidgeModel
+from advkern.inp_advtrain import fine_tunne_advtrain
+
+
 
 import sklearn.model_selection
 from sklearn.datasets import load_diabetes
@@ -86,7 +89,7 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--setting', choices=['regr', 'regr_short' ], default='regr')
+    parser.add_argument('--setting', choices=['regr', 'regr_short', 'rebuttal'], default='rebuttal')
     parser.add_argument('--dont_plot', action='store_true', help='Enable plotting')
     parser.add_argument('--dont_show', action='store_true', help='dont show plot, but maybe save it')
     parser.add_argument('--load_data', action='store_true', help='Enable data loading')
@@ -122,6 +125,19 @@ if __name__ == '__main__':
         ylabel = 'MAPE'
         methods_to_show = ['akr', 'kr_cv']
         methods_name = ['Adv Kern', 'Kernel Ridge']
+
+    elif args.setting == 'rebuttal':
+        all_methods = ['akr-0.01', 'akr-0.1']
+        adv_radius = 0.1
+        datasets = [polution, diabetes, us_crime, wine, abalone]
+        tp = 'regression'
+        metrics_names = ['r2_score', 'mape']
+        metrics_of_interest = [r2_score, mean_absolute_percentage_error]
+        metric_show = 'mape'
+        ord = np.inf
+        ylabel = 'MAPE'
+        methods_to_show = ['akr',]
+        methods_name = ['Adv Kern',]
     else:
         raise ValueError('Setting not implemented')
 
@@ -151,6 +167,10 @@ if __name__ == '__main__':
                 if method == 'akr':
                     est = AdvKernelTrain(verbose=False, kernel=kernel, **kernel_params)
                     est = GridSearchCV(est, param_grid={"gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
+                elif 'akr-' in method:
+                    radius = float(method.split('akr-')[1])
+                    est = AdvKernelTrain(verbose=False, kernel=kernel, adv_radius=radius, **kernel_params)
+                    est = GridSearchCV(est, param_grid={"gamma": [10, 1e0, 0.1, 1e-2, 1e-3]})
                 elif method in ['kr_cv', 'adv-inp-2', 'adv-inp-inf']:
                     est = KernelRidge(kernel='rbf',
                                       **kernel_params)  # Needs to have rbf here, otherwise cross-validation will not work, because kernel ridge already define parameter
@@ -165,11 +185,11 @@ if __name__ == '__main__':
 
                 if method == 'adv-inp-2':
                     model = KernelRidgeModel.from_sklearn('rbf', estimator)
-                    model = fine_tunne_advtrain(model, X_train, y_train, p=2, nepochs=200)
+                    model = fine_tunne_advtrain(model, X_train, y_train, p=2, adv_radius=adv_radius, nepochs=200)
                     y_pred = model(torch.tensor(X_test))
                 elif method == 'adv-inp-inf':
                     model = KernelRidgeModel.from_sklearn('rbf', estimator)
-                    model = fine_tunne_advtrain(model, X_train, y_train, p=np.inf, nepochs=200)
+                    model = fine_tunne_advtrain(model, X_train, y_train, p=np.inf, adv_radius=adv_radius, nepochs=200)
                     y_pred = model(torch.tensor(X_test))
 
                 if isinstance(y_pred, torch.Tensor):
@@ -185,7 +205,7 @@ if __name__ == '__main__':
                 all_results.append(ms)
 
                 if method != 'amkl':
-                    if method in ['akr', 'kr_cv']:
+                    if (method in ['akr', 'kr_cv']) or ('akr-' in method):
                         model = KernelRidgeModel.from_sklearn('rbf', estimator)
                     params = [
                         {'loss_fn': torch.nn.MSELoss(), 'p': 2, 'adv_radius': rad, 'step_size': rad / 50, 'nsteps': 100}
@@ -195,7 +215,6 @@ if __name__ == '__main__':
                     for param in params:
                         attack = PGD(model, **param)
                         X_adv = attack(torch.tensor(X_test), torch.tensor(y_test))
-                        print(model(torch.tensor(X_test)))
                         y_pred_adv = model(X_adv).detach().numpy()
                         ms = [dset.__name__, method, 'True', param['p'], param['adv_radius']]
                         ms += [m(y_test, y_pred_adv) for m in metrics_of_interest]
