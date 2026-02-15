@@ -2,7 +2,8 @@
 
 Research code for the paper:
 
-> **Kernel Learning with Adversarial Features: Numerical Efficiency and Adaptive Regularization**
+> Antônio H. Ribeiro, David Vävinggren, Dave Zachariah, Thomas B. Schön, and Francis Bach. "Kernel Learning with Adversarial Features: Numerical Efficiency and Adaptive Regularization." In *Advances in Neural Information Processing Systems (NeurIPS)*, 2025.
+> [[Paper]](https://neurips.cc/virtual/2025/loc/san-diego/poster/116102) [[arXiv]](https://arxiv.org/abs/2510.20883) [[OpenReview]](https://openreview.net/forum?id=nsE0QN904q)
 
 This repository implements adversarial training techniques for kernel-based regression models. The core idea is to learn robustness at the *kernel level* through an iterative reweighting scheme, rather than relying on input-level perturbations. This yields numerically efficient adversarial training with adaptive regularization.
 
